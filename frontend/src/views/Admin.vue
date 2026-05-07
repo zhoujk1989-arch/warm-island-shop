@@ -7,6 +7,7 @@ import {
   Download,
   Edit,
   Goods,
+  Picture,
   Plus,
   Refresh,
   Search,
@@ -14,14 +15,28 @@ import {
 } from '@element-plus/icons-vue'
 
 const API_BASE = '/api/products'
+const CATEGORY_API_BASE = '/api/categories'
+const HOME_API_BASE = '/api/admin/home'
 
 const products = ref([])
+const categoryList = ref([])
 const loading = ref(false)
+const categoryLoading = ref(false)
+const homeLoading = ref(false)
 const keyword = ref('')
 const selectedCategory = ref('全部')
 const selectedStatus = ref('全部')
+const activeSection = ref('products')
 const drawerVisible = ref(false)
+const categoryDrawerVisible = ref(false)
+const homeSectionDrawerVisible = ref(false)
+const homeItemDrawerVisible = ref(false)
 const editingId = ref(null)
+const editingCategoryId = ref(null)
+const editingHomeSectionCode = ref('')
+const editingHomeItemId = ref(null)
+const homeSections = ref([])
+const activeHomeSectionCode = ref('hero')
 
 const productForm = reactive({
   name: '',
@@ -35,11 +50,49 @@ const productForm = reactive({
   rating: 4.8,
   soldCount: 0,
   images: [],
+  variants: [],
+  detailEntries: [],
   description: '',
   tags: '',
 })
 
-const categories = computed(() => ['全部', ...new Set(products.value.map((item) => item.category))])
+const categoryForm = reactive({
+  name: '',
+  sortOrder: 0,
+  status: '启用',
+})
+
+const homeSectionForm = reactive({
+  code: '',
+  eyebrow: '',
+  title: '',
+  subtitle: '',
+  body: '',
+  imageUrl: '',
+  linkText: '',
+  linkUrl: '',
+  sortOrder: 0,
+  status: '启用',
+})
+
+const homeItemForm = reactive({
+  sectionCode: '',
+  itemType: 'category_card',
+  title: '',
+  subtitle: '',
+  description: '',
+  imageUrl: '',
+  linkText: '',
+  linkUrl: '',
+  sortOrder: 0,
+  status: '启用',
+})
+
+const enabledCategories = computed(() => categoryList.value.filter((item) => item.status === '启用'))
+const categoryFilters = computed(() => ['全部', ...categoryList.value.map((item) => item.name)])
+const currentHomeSection = computed(() =>
+  homeSections.value.find((section) => section.code === activeHomeSectionCode.value) || homeSections.value[0],
+)
 
 const filteredProducts = computed(() => {
   const query = keyword.value.trim().toLowerCase()
@@ -107,9 +160,40 @@ function resetForm() {
     rating: 4.8,
     soldCount: 0,
     images: [],
+    variants: [],
+    detailEntries: [],
     description: '',
     tags: '',
   })
+}
+
+function normalizeDetailEntries(entries = []) {
+  return entries
+    .map((entry, index) => ({
+      sectionType: entry.sectionType || 'detail',
+      layoutType: entry.layoutType || 'text',
+      title: entry.title || '',
+      content: entry.content || '',
+      imageUrl: entry.imageUrl || '',
+      sortOrder: Number(entry.sortOrder) || index + 1,
+      status: entry.status || '启用',
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+}
+
+function normalizeVariants(variants = []) {
+  return variants
+    .map((variant, index) => ({
+      name: variant.name || '',
+      skuCode: variant.skuCode || '',
+      price: variant.price === null || variant.price === undefined ? null : Number(variant.price),
+      originalPrice: variant.originalPrice === null || variant.originalPrice === undefined ? null : Number(variant.originalPrice),
+      stock: Number(variant.stock) || 0,
+      imageUrl: variant.imageUrl || '',
+      sortOrder: Number(variant.sortOrder) || index + 1,
+      status: variant.status || '启用',
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder)
 }
 
 function normalizeProduct(product) {
@@ -125,6 +209,8 @@ function normalizeProduct(product) {
       : Number(product.originalPrice),
     image: product.image || '/products/coffee.jpg',
     images: product.images?.length ? product.images : [product.image || '/products/coffee.jpg'],
+    variants: normalizeVariants(product.variants || []),
+    detailEntries: normalizeDetailEntries(product.detailEntries || []),
     description: product.description || '',
     tags,
     rating: Number(product.rating) || 4.8,
@@ -165,9 +251,38 @@ async function fetchProducts() {
   }
 }
 
+async function fetchCategories() {
+  categoryLoading.value = true
+
+  try {
+    categoryList.value = await requestJson(CATEGORY_API_BASE)
+  } catch (error) {
+    ElMessage.error(`读取分类失败：${error.message}`)
+  } finally {
+    categoryLoading.value = false
+  }
+}
+
+async function fetchHomeContent() {
+  homeLoading.value = true
+
+  try {
+    homeSections.value = await requestJson(HOME_API_BASE)
+
+    if (!homeSections.value.some((section) => section.code === activeHomeSectionCode.value)) {
+      activeHomeSectionCode.value = homeSections.value[0]?.code || 'hero'
+    }
+  } catch (error) {
+    ElMessage.error(`读取首页内容失败：${error.message}`)
+  } finally {
+    homeLoading.value = false
+  }
+}
+
 function openCreateDrawer() {
   editingId.value = null
   resetForm()
+  productForm.category = enabledCategories.value[0]?.name || ''
   drawerVisible.value = true
 }
 
@@ -185,6 +300,8 @@ function openEditDrawer(product) {
     rating: product.rating,
     soldCount: product.soldCount,
     images: [...product.images],
+    variants: normalizeVariants(product.variants || []),
+    detailEntries: normalizeDetailEntries(product.detailEntries || []),
     description: product.description,
     tags: product.tags.join('、'),
   })
@@ -261,6 +378,144 @@ async function downloadImage(image) {
   }
 }
 
+async function uploadImageFile(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch(`${API_BASE}/upload`, {
+    method: 'POST',
+    body: formData,
+  })
+  const result = await response.json()
+
+  if (!response.ok || result.code !== 200) {
+    throw new Error(result.message || '上传失败')
+  }
+
+  return result.data
+}
+
+async function uploadHomeSectionImage({ file, onSuccess, onError }) {
+  try {
+    homeSectionForm.imageUrl = await uploadImageFile(file)
+    ElMessage.success('首页图片已上传')
+    onSuccess({ code: 200 })
+  } catch (error) {
+    ElMessage.error(`图片上传失败：${error.message}`)
+    onError(error)
+  }
+}
+
+async function uploadHomeItemImage({ file, onSuccess, onError }) {
+  try {
+    homeItemForm.imageUrl = await uploadImageFile(file)
+    ElMessage.success('首页内容项图片已上传')
+    onSuccess({ code: 200 })
+  } catch (error) {
+    ElMessage.error(`图片上传失败：${error.message}`)
+    onError(error)
+  }
+}
+
+const detailSectionLabels = {
+  detail: '图文详情',
+  spec: '规格参数',
+  service: '服务说明',
+  notice: '购买须知',
+}
+
+const detailLayoutLabels = {
+  text: '纯文本',
+  image_text: '图文左右',
+  image: '通栏图片',
+  highlight: '重点说明',
+}
+
+function detailEntriesBySection(sectionType) {
+  return productForm.detailEntries
+    .filter((entry) => entry.sectionType === sectionType)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+}
+
+function addDetailEntry(sectionType) {
+  productForm.detailEntries.push({
+    sectionType,
+    layoutType: sectionType === 'detail' ? 'image_text' : sectionType === 'service' ? 'highlight' : 'text',
+    title: '',
+    content: '',
+    imageUrl: '',
+    sortOrder: productForm.detailEntries.length + 1,
+    status: '启用',
+  })
+}
+
+function removeDetailEntry(entry) {
+  const index = productForm.detailEntries.indexOf(entry)
+
+  if (index >= 0) {
+    productForm.detailEntries.splice(index, 1)
+  }
+}
+
+function moveDetailEntry(entry, direction) {
+  const entries = detailEntriesBySection(entry.sectionType)
+  const index = entries.indexOf(entry)
+  const next = entries[index + direction]
+
+  if (!next) {
+    return
+  }
+
+  const currentSort = entry.sortOrder
+  entry.sortOrder = next.sortOrder
+  next.sortOrder = currentSort
+}
+
+async function uploadDetailEntryImage(entry, file) {
+  entry.imageUrl = await uploadImageFile(file)
+  ElMessage.success('详情图片已上传')
+}
+
+function addVariant() {
+  productForm.variants.push({
+    name: '',
+    skuCode: '',
+    price: Number(productForm.price) || 0,
+    originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : null,
+    stock: Number(productForm.stock) || 0,
+    imageUrl: productForm.images[0] || productForm.image,
+    sortOrder: productForm.variants.length + 1,
+    status: '启用',
+  })
+}
+
+function removeVariant(variant) {
+  const index = productForm.variants.indexOf(variant)
+
+  if (index >= 0) {
+    productForm.variants.splice(index, 1)
+  }
+}
+
+function moveVariant(index, direction) {
+  const nextIndex = index + direction
+
+  if (nextIndex < 0 || nextIndex >= productForm.variants.length) {
+    return
+  }
+
+  const [variant] = productForm.variants.splice(index, 1)
+  productForm.variants.splice(nextIndex, 0, variant)
+  productForm.variants.forEach((item, itemIndex) => {
+    item.sortOrder = itemIndex + 1
+  })
+}
+
+async function uploadVariantImage(variant, file) {
+  variant.imageUrl = await uploadImageFile(file)
+  ElMessage.success('款式图片已上传')
+}
+
 async function saveProduct() {
   if (!productForm.name.trim() || !productForm.category.trim()) {
     ElMessage.warning('请填写商品名称和分类')
@@ -282,6 +537,8 @@ async function saveProduct() {
     originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : null,
     image: images[0],
     images,
+    variants: normalizeVariants(productForm.variants),
+    detailEntries: normalizeDetailEntries(productForm.detailEntries),
     rating: Number(productForm.rating) || 4.8,
     soldCount: Number(productForm.soldCount) || 0,
     stock: Number(productForm.stock) || 0,
@@ -312,6 +569,263 @@ async function saveProduct() {
   }
 }
 
+function resetCategoryForm() {
+  Object.assign(categoryForm, {
+    name: '',
+    sortOrder: categoryList.value.length + 1,
+    status: '启用',
+  })
+}
+
+function openCreateCategoryDrawer() {
+  editingCategoryId.value = null
+  resetCategoryForm()
+  categoryDrawerVisible.value = true
+}
+
+function openEditCategoryDrawer(category) {
+  editingCategoryId.value = category.id
+  Object.assign(categoryForm, {
+    name: category.name,
+    sortOrder: category.sortOrder,
+    status: category.status,
+  })
+  categoryDrawerVisible.value = true
+}
+
+async function saveCategory() {
+  if (!categoryForm.name.trim()) {
+    ElMessage.warning('请填写分类名称')
+    return
+  }
+
+  const payload = {
+    name: categoryForm.name.trim(),
+    sortOrder: Number(categoryForm.sortOrder) || 0,
+    status: categoryForm.status,
+  }
+
+  try {
+    if (editingCategoryId.value) {
+      await requestJson(`${CATEGORY_API_BASE}/${editingCategoryId.value}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      })
+      ElMessage.success('分类已更新')
+    } else {
+      await requestJson(CATEGORY_API_BASE, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+      ElMessage.success('分类已新增')
+    }
+
+    categoryDrawerVisible.value = false
+    await Promise.all([fetchCategories(), fetchProducts()])
+  } catch (error) {
+    ElMessage.error(`保存分类失败：${error.message}`)
+  }
+}
+
+async function toggleCategoryStatus(category) {
+  const nextStatus = category.status === '启用' ? '停用' : '启用'
+
+  try {
+    await requestJson(`${CATEGORY_API_BASE}/${category.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...category,
+        status: nextStatus,
+      }),
+    })
+    ElMessage.success(`分类已${nextStatus}`)
+    await fetchCategories()
+  } catch (error) {
+    ElMessage.error(`状态更新失败：${error.message}`)
+  }
+}
+
+async function removeCategory(category) {
+  try {
+    await ElMessageBox.confirm(`确认删除分类「${category.name}」吗？`, '删除分类', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+
+    await requestJson(`${CATEGORY_API_BASE}/${category.id}`, { method: 'DELETE' })
+    ElMessage.success('分类已删除')
+    await fetchCategories()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(`删除分类失败：${error.message}`)
+    }
+  }
+}
+
+function resetHomeSectionForm(section) {
+  Object.assign(homeSectionForm, {
+    code: section?.code || '',
+    eyebrow: section?.eyebrow || '',
+    title: section?.title || '',
+    subtitle: section?.subtitle || '',
+    body: section?.body || '',
+    imageUrl: section?.imageUrl || '',
+    linkText: section?.linkText || '',
+    linkUrl: section?.linkUrl || '',
+    sortOrder: Number(section?.sortOrder) || 0,
+    status: section?.status || '启用',
+  })
+}
+
+function openEditHomeSection(section) {
+  editingHomeSectionCode.value = section.code
+  resetHomeSectionForm(section)
+  homeSectionDrawerVisible.value = true
+}
+
+async function saveHomeSection() {
+  if (!editingHomeSectionCode.value) {
+    return
+  }
+
+  try {
+    await requestJson(`${HOME_API_BASE}/sections/${editingHomeSectionCode.value}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...homeSectionForm,
+        sortOrder: Number(homeSectionForm.sortOrder) || 0,
+      }),
+    })
+    ElMessage.success('首页内容位已保存')
+    homeSectionDrawerVisible.value = false
+    await fetchHomeContent()
+  } catch (error) {
+    ElMessage.error(`保存首页内容位失败：${error.message}`)
+  }
+}
+
+async function toggleHomeSectionStatus(section) {
+  try {
+    await requestJson(`${HOME_API_BASE}/sections/${section.code}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...section,
+        status: section.status === '启用' ? '停用' : '启用',
+      }),
+    })
+    ElMessage.success('首页内容位状态已更新')
+    await fetchHomeContent()
+  } catch (error) {
+    ElMessage.error(`状态更新失败：${error.message}`)
+  }
+}
+
+function resetHomeItemForm(sectionCode) {
+  Object.assign(homeItemForm, {
+    sectionCode,
+    itemType: sectionCode === 'category_cards' ? 'category_card' : 'button',
+    title: '',
+    subtitle: '',
+    description: '',
+    imageUrl: '',
+    linkText: '',
+    linkUrl: '',
+    sortOrder: (currentHomeSection.value?.items?.length || 0) + 1,
+    status: '启用',
+  })
+}
+
+function openCreateHomeItem(sectionCode) {
+  editingHomeItemId.value = null
+  resetHomeItemForm(sectionCode)
+  homeItemDrawerVisible.value = true
+}
+
+function openEditHomeItem(item) {
+  editingHomeItemId.value = item.id
+  Object.assign(homeItemForm, {
+    sectionCode: item.sectionCode,
+    itemType: item.itemType || 'button',
+    title: item.title || '',
+    subtitle: item.subtitle || '',
+    description: item.description || '',
+    imageUrl: item.imageUrl || '',
+    linkText: item.linkText || '',
+    linkUrl: item.linkUrl || '',
+    sortOrder: Number(item.sortOrder) || 0,
+    status: item.status || '启用',
+  })
+  homeItemDrawerVisible.value = true
+}
+
+async function saveHomeItem() {
+  if (!homeItemForm.title.trim()) {
+    ElMessage.warning('请填写内容项标题')
+    return
+  }
+
+  const payload = {
+    ...homeItemForm,
+    sortOrder: Number(homeItemForm.sortOrder) || 0,
+  }
+
+  try {
+    if (editingHomeItemId.value) {
+      await requestJson(`${HOME_API_BASE}/items/${editingHomeItemId.value}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      })
+      ElMessage.success('首页内容项已更新')
+    } else {
+      await requestJson(`${HOME_API_BASE}/sections/${homeItemForm.sectionCode}/items`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+      ElMessage.success('首页内容项已新增')
+    }
+
+    homeItemDrawerVisible.value = false
+    await fetchHomeContent()
+  } catch (error) {
+    ElMessage.error(`保存首页内容项失败：${error.message}`)
+  }
+}
+
+async function toggleHomeItemStatus(item) {
+  try {
+    await requestJson(`${HOME_API_BASE}/items/${item.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...item,
+        status: item.status === '启用' ? '停用' : '启用',
+      }),
+    })
+    ElMessage.success('首页内容项状态已更新')
+    await fetchHomeContent()
+  } catch (error) {
+    ElMessage.error(`状态更新失败：${error.message}`)
+  }
+}
+
+async function removeHomeItem(item) {
+  try {
+    await ElMessageBox.confirm(`确认删除首页内容项「${item.title}」吗？`, '删除首页内容项', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+
+    await requestJson(`${HOME_API_BASE}/items/${item.id}`, { method: 'DELETE' })
+    ElMessage.success('首页内容项已删除')
+    await fetchHomeContent()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(`删除首页内容项失败：${error.message}`)
+    }
+  }
+}
+
 async function toggleStatus(product) {
   const nextStatus = product.status === '销售中' ? '已下架' : '销售中'
 
@@ -322,6 +836,8 @@ async function toggleStatus(product) {
         ...product,
         tags: product.tags.join(','),
         images: product.images,
+        variants: product.variants || [],
+        detailEntries: product.detailEntries || [],
         image: product.images[0] || product.image,
         status: nextStatus,
       }),
@@ -353,9 +869,15 @@ async function removeProduct(product) {
 
 function refreshProducts() {
   fetchProducts()
+  fetchCategories()
+  fetchHomeContent()
 }
 
-onMounted(fetchProducts)
+onMounted(() => {
+  fetchProducts()
+  fetchCategories()
+  fetchHomeContent()
+})
 </script>
 
 <template>
@@ -371,16 +893,20 @@ onMounted(fetchProducts)
         </div>
 
         <nav class="admin-nav">
-          <button class="active">
+          <button :class="{ active: activeSection === 'products' }" @click="activeSection = 'products'">
             <el-icon><Goods /></el-icon>
             商品管理
           </button>
-          <button>
-            <el-icon><TrendCharts /></el-icon>
-            经营概览
+          <button :class="{ active: activeSection === 'categories' }" @click="activeSection = 'categories'">
+            <el-icon><Box /></el-icon>
+            分类维护
+          </button>
+          <button :class="{ active: activeSection === 'home' }" @click="activeSection = 'home'">
+            <el-icon><Picture /></el-icon>
+            首页装修
           </button>
           <button>
-            <el-icon><Box /></el-icon>
+            <el-icon><TrendCharts /></el-icon>
             库存预警
           </button>
         </nav>
@@ -394,11 +920,34 @@ onMounted(fetchProducts)
           </div>
           <div class="toolbar-actions">
             <el-button :icon="Refresh" @click="refreshProducts">刷新数据库数据</el-button>
-            <el-button type="primary" :icon="Plus" @click="openCreateDrawer">新增商品</el-button>
+            <el-button
+              v-if="activeSection === 'products'"
+              type="primary"
+              :icon="Plus"
+              @click="openCreateDrawer"
+            >
+              新增商品
+            </el-button>
+            <el-button
+              v-else-if="activeSection === 'categories'"
+              type="primary"
+              :icon="Plus"
+              @click="openCreateCategoryDrawer"
+            >
+              新增分类
+            </el-button>
+            <el-button
+              v-else-if="activeSection === 'home' && currentHomeSection"
+              type="primary"
+              :icon="Plus"
+              @click="openCreateHomeItem(currentHomeSection.code)"
+            >
+              新增首页内容
+            </el-button>
           </div>
         </section>
 
-        <section class="stats-grid">
+        <section v-if="activeSection === 'products'" class="stats-grid">
           <div v-for="item in stats" :key="item.label" class="stat-card" :class="`stat-${item.tone}`">
             <div class="stat-icon">
               <el-icon><component :is="item.icon" /></el-icon>
@@ -410,7 +959,7 @@ onMounted(fetchProducts)
           </div>
         </section>
 
-        <section class="panel">
+        <section v-if="activeSection === 'products'" class="panel">
           <div class="panel-header">
             <div>
               <h2>商品列表</h2>
@@ -424,7 +973,7 @@ onMounted(fetchProducts)
                 placeholder="搜索商品"
               />
               <el-select v-model="selectedCategory" placeholder="分类">
-                <el-option v-for="category in categories" :key="category" :label="category" :value="category" />
+                <el-option v-for="category in categoryFilters" :key="category" :label="category" :value="category" />
               </el-select>
               <el-select v-model="selectedStatus" placeholder="状态">
                 <el-option label="全部" value="全部" />
@@ -481,6 +1030,121 @@ onMounted(fetchProducts)
             </el-table>
           </div>
         </section>
+
+        <section v-else-if="activeSection === 'categories'" class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>分类维护</h2>
+              <p>维护商品分类，商品编辑时只能从启用分类中选择。</p>
+            </div>
+            <el-button type="primary" :icon="Plus" @click="openCreateCategoryDrawer">新增分类</el-button>
+          </div>
+
+          <div class="table-wrap">
+            <el-table v-loading="categoryLoading" :data="categoryList" row-key="id">
+              <el-table-column prop="name" label="分类名称" min-width="180" />
+              <el-table-column prop="sortOrder" label="排序" width="100" />
+              <el-table-column label="状态" width="110">
+                <template #default="{ row }">
+                  <el-tag :type="row.status === '启用' ? 'success' : 'info'">{{ row.status }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="updateTime" label="更新日期" min-width="180" />
+              <el-table-column label="操作" fixed="right" width="250">
+                <template #default="{ row }">
+                  <el-button size="small" :icon="Edit" @click="openEditCategoryDrawer(row)">编辑</el-button>
+                  <el-button size="small" @click="toggleCategoryStatus(row)">
+                    {{ row.status === '启用' ? '停用' : '启用' }}
+                  </el-button>
+                  <el-button size="small" type="danger" :icon="Delete" @click="removeCategory(row)" />
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </section>
+
+        <section v-else-if="activeSection === 'home'" class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>首页装修</h2>
+              <p>维护首页固定内容位、推广文案、按钮和图片，前台会从数据库实时读取。</p>
+            </div>
+            <el-button
+              v-if="currentHomeSection"
+              type="primary"
+              :icon="Plus"
+              @click="openCreateHomeItem(currentHomeSection.code)"
+            >
+              新增首页内容
+            </el-button>
+          </div>
+
+          <div class="home-layout" v-loading="homeLoading">
+            <aside class="home-section-list">
+              <button
+                v-for="section in homeSections"
+                :key="section.code"
+                :class="{ active: activeHomeSectionCode === section.code }"
+                @click="activeHomeSectionCode = section.code"
+              >
+                <strong>{{ section.title || section.code }}</strong>
+                <span>{{ section.code }} · {{ section.status }}</span>
+              </button>
+            </aside>
+
+            <div v-if="currentHomeSection" class="home-editor">
+              <div class="home-section-card">
+                <div>
+                  <span class="home-code">{{ currentHomeSection.code }}</span>
+                  <h3>{{ currentHomeSection.title }}</h3>
+                  <p>{{ currentHomeSection.body }}</p>
+                </div>
+                <div class="home-section-actions">
+                  <el-tag :type="currentHomeSection.status === '启用' ? 'success' : 'info'">
+                    {{ currentHomeSection.status }}
+                  </el-tag>
+                  <el-button size="small" :icon="Edit" @click="openEditHomeSection(currentHomeSection)">编辑内容位</el-button>
+                  <el-button size="small" @click="toggleHomeSectionStatus(currentHomeSection)">
+                    {{ currentHomeSection.status === '启用' ? '停用' : '启用' }}
+                  </el-button>
+                </div>
+              </div>
+
+              <div class="table-wrap">
+                <el-table :data="currentHomeSection.items || []" row-key="id">
+                  <el-table-column label="内容项" min-width="240">
+                    <template #default="{ row }">
+                      <div class="product-cell">
+                        <img v-if="row.imageUrl" :src="row.imageUrl" :alt="row.title" />
+                        <div v-else class="image-placeholder">无图</div>
+                        <div>
+                          <strong>{{ row.title }}</strong>
+                          <span>{{ row.subtitle || row.description || row.linkUrl || '-' }}</span>
+                        </div>
+                      </div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="itemType" label="类型" width="130" />
+                  <el-table-column prop="sortOrder" label="排序" width="90" />
+                  <el-table-column label="状态" width="100">
+                    <template #default="{ row }">
+                      <el-tag :type="row.status === '启用' ? 'success' : 'info'">{{ row.status }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作" fixed="right" width="250">
+                    <template #default="{ row }">
+                      <el-button size="small" :icon="Edit" @click="openEditHomeItem(row)">编辑</el-button>
+                      <el-button size="small" @click="toggleHomeItemStatus(row)">
+                        {{ row.status === '启用' ? '停用' : '启用' }}
+                      </el-button>
+                      <el-button size="small" type="danger" :icon="Delete" @click="removeHomeItem(row)" />
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -532,7 +1196,14 @@ onMounted(fetchProducts)
         </el-form-item>
         <div class="form-grid">
           <el-form-item label="分类">
-            <el-input v-model="productForm.category" placeholder="饮品 / 甜点 / 周边" />
+            <el-select v-model="productForm.category" placeholder="选择分类" filterable>
+              <el-option
+                v-for="category in enabledCategories"
+                :key="category.id"
+                :label="category.name"
+                :value="category.name"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item label="状态">
             <el-select v-model="productForm.status">
@@ -563,14 +1234,327 @@ onMounted(fetchProducts)
         <el-form-item label="标签">
           <el-input v-model="productForm.tags" placeholder="多个标签用顿号或逗号分隔" />
         </el-form-item>
-        <el-form-item label="商品描述">
+        <el-form-item label="列表摘要">
           <el-input v-model="productForm.description" type="textarea" :rows="4" />
+        </el-form-item>
+        <el-form-item label="款式维护">
+          <div class="variant-editor">
+            <div class="variant-editor-head">
+              <div>
+                <strong>同一商品不同款式</strong>
+                <span>维护颜色、规格、套装等款式，前台详情页可选择并联动价格、库存和图片。</span>
+              </div>
+              <el-button size="small" :icon="Plus" @click="addVariant">新增款式</el-button>
+            </div>
+
+            <div v-if="productForm.variants.length" class="variant-list">
+              <div v-for="(variant, index) in productForm.variants" :key="`${variant.name}-${index}`" class="variant-card">
+                <div class="variant-media">
+                  <img v-if="variant.imageUrl" :src="variant.imageUrl" alt="款式图片">
+                  <span v-else>款式图</span>
+                </div>
+                <div class="variant-fields">
+                  <div class="variant-grid">
+                    <el-input v-model="variant.name" placeholder="款式名称，例如：奶油白 / 250ml" />
+                    <el-input v-model="variant.skuCode" placeholder="款式编码，例如：CUP-WHITE-250" />
+                  </div>
+                  <div class="variant-grid">
+                    <el-input-number v-model="variant.price" :min="0" controls-position="right" placeholder="售价" />
+                    <el-input-number v-model="variant.originalPrice" :min="0" controls-position="right" placeholder="原价" />
+                    <el-input-number v-model="variant.stock" :min="0" controls-position="right" placeholder="库存" />
+                    <el-select v-model="variant.status" placeholder="状态">
+                      <el-option label="启用" value="启用" />
+                      <el-option label="停用" value="停用" />
+                    </el-select>
+                  </div>
+                  <div class="variant-actions">
+                    <el-upload
+                      action=""
+                      accept="image/*"
+                      :show-file-list="false"
+                      :http-request="({ file, onSuccess, onError }) => uploadVariantImage(variant, file).then(() => onSuccess({ code: 200 })).catch(onError)"
+                    >
+                      <el-button size="small">上传款式图</el-button>
+                    </el-upload>
+                    <el-button size="small" :disabled="index === 0" @click="moveVariant(index, -1)">上移</el-button>
+                    <el-button size="small" :disabled="index === productForm.variants.length - 1" @click="moveVariant(index, 1)">下移</el-button>
+                    <el-button v-if="variant.imageUrl" size="small" :icon="Download" @click="downloadImage(variant.imageUrl)">下载</el-button>
+                    <el-button size="small" type="danger" :icon="Delete" @click="removeVariant(variant)">删除</el-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="detail-empty">暂未维护款式，前台将按商品默认价格和库存展示。</div>
+          </div>
+        </el-form-item>
+        <el-form-item label="详情内容维护">
+          <div class="detail-editor">
+            <div
+              v-for="sectionType in ['detail', 'spec', 'service', 'notice']"
+              :key="sectionType"
+              class="detail-section"
+            >
+              <div class="detail-section-head">
+                <div>
+                  <strong>{{ detailSectionLabels[sectionType] }}</strong>
+                  <span>
+                    {{ sectionType === 'detail' ? '独立于列表摘要，用于商品详情页图文排版。' : '在商品详情页对应模块展示。' }}
+                  </span>
+                </div>
+                <el-button size="small" :icon="Plus" @click="addDetailEntry(sectionType)">新增</el-button>
+              </div>
+
+              <div v-if="detailEntriesBySection(sectionType).length" class="detail-entry-list">
+                <div
+                  v-for="entry in detailEntriesBySection(sectionType)"
+                  :key="`${entry.sectionType}-${entry.sortOrder}-${entry.title}`"
+                  class="detail-entry"
+                >
+                  <div class="detail-entry-top">
+                    <el-select v-model="entry.layoutType" size="small" class="detail-layout-select">
+                      <el-option
+                        v-for="(label, value) in detailLayoutLabels"
+                        :key="value"
+                        :label="label"
+                        :value="value"
+                      />
+                    </el-select>
+                    <el-select v-model="entry.status" size="small" class="detail-status-select">
+                      <el-option label="启用" value="启用" />
+                      <el-option label="停用" value="停用" />
+                    </el-select>
+                    <el-input-number v-model="entry.sortOrder" size="small" :min="0" controls-position="right" />
+                  </div>
+
+                  <el-input v-model="entry.title" placeholder="标题 / 参数名" />
+                  <el-input v-model="entry.content" type="textarea" :rows="sectionType === 'detail' ? 4 : 2" placeholder="内容 / 参数值" />
+
+                  <div v-if="sectionType === 'detail'" class="detail-image-box">
+                    <el-upload
+                      drag
+                      action=""
+                      accept="image/*"
+                      :show-file-list="false"
+                      :http-request="({ file, onSuccess, onError }) => uploadDetailEntryImage(entry, file).then(() => onSuccess({ code: 200 })).catch(onError)"
+                    >
+                      <div class="upload-copy">
+                        <strong>上传详情图片</strong>
+                        <span>用于图文左右或通栏图片排版。</span>
+                      </div>
+                    </el-upload>
+                    <div v-if="entry.imageUrl" class="image-row">
+                      <img :src="entry.imageUrl" alt="详情图片">
+                      <div class="image-row-main">
+                        <div class="image-row-title">
+                          <span>详情图</span>
+                        </div>
+                      </div>
+                      <div class="image-actions">
+                        <el-button size="small" :icon="Download" @click="downloadImage(entry.imageUrl)">下载</el-button>
+                        <el-button size="small" type="danger" :icon="Delete" @click="entry.imageUrl = ''" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="detail-entry-actions">
+                    <el-button size="small" @click="moveDetailEntry(entry, -1)">上移</el-button>
+                    <el-button size="small" @click="moveDetailEntry(entry, 1)">下移</el-button>
+                    <el-button size="small" type="danger" :icon="Delete" @click="removeDetailEntry(entry)">删除</el-button>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="detail-empty">暂未维护{{ detailSectionLabels[sectionType] }}</div>
+            </div>
+          </div>
         </el-form-item>
       </el-form>
 
       <template #footer>
         <el-button @click="drawerVisible = false">取消</el-button>
         <el-button type="primary" @click="saveProduct">保存</el-button>
+      </template>
+    </el-drawer>
+
+    <el-drawer
+      v-model="categoryDrawerVisible"
+      :title="editingCategoryId ? '编辑分类' : '新增分类'"
+      size="min(420px, 100%)"
+    >
+      <el-form label-position="top">
+        <el-form-item label="分类名称">
+          <el-input v-model="categoryForm.name" placeholder="例如：饮品" />
+        </el-form-item>
+        <el-form-item label="排序">
+          <el-input-number v-model="categoryForm.sortOrder" :min="0" controls-position="right" />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="categoryForm.status">
+            <el-option label="启用" value="启用" />
+            <el-option label="停用" value="停用" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="categoryDrawerVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveCategory">保存</el-button>
+      </template>
+    </el-drawer>
+
+    <el-drawer
+      v-model="homeSectionDrawerVisible"
+      title="编辑首页内容位"
+      size="min(520px, 100%)"
+    >
+      <el-form label-position="top">
+        <el-form-item label="内容位编码">
+          <el-input v-model="homeSectionForm.code" disabled />
+        </el-form-item>
+        <div class="form-grid">
+          <el-form-item label="眉标">
+            <el-input v-model="homeSectionForm.eyebrow" />
+          </el-form-item>
+          <el-form-item label="状态">
+            <el-select v-model="homeSectionForm.status">
+              <el-option label="启用" value="启用" />
+              <el-option label="停用" value="停用" />
+            </el-select>
+          </el-form-item>
+        </div>
+        <el-form-item label="标题">
+          <el-input v-model="homeSectionForm.title" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item label="图片">
+          <div class="image-manager">
+            <el-upload
+              drag
+              action=""
+              accept="image/*"
+              :show-file-list="false"
+              :http-request="uploadHomeSectionImage"
+            >
+              <div class="upload-copy">
+                <strong>上传内容位图片</strong>
+                <span>上传后自动替换当前图片。</span>
+              </div>
+            </el-upload>
+            <div v-if="homeSectionForm.imageUrl" class="image-row">
+              <img :src="homeSectionForm.imageUrl" alt="首页内容位图片">
+              <div class="image-row-main">
+                <div class="image-row-title">
+                  <span>当前图片</span>
+                </div>
+              </div>
+              <div class="image-actions">
+                <el-button size="small" :icon="Download" @click="downloadImage(homeSectionForm.imageUrl)">下载</el-button>
+                <el-button size="small" type="danger" :icon="Delete" @click="homeSectionForm.imageUrl = ''" />
+              </div>
+            </div>
+          </div>
+        </el-form-item>
+        <el-form-item label="正文">
+          <el-input v-model="homeSectionForm.body" type="textarea" :rows="5" />
+        </el-form-item>
+        <div class="form-grid">
+          <el-form-item label="按钮文案">
+            <el-input v-model="homeSectionForm.linkText" />
+          </el-form-item>
+          <el-form-item label="按钮链接">
+            <el-input v-model="homeSectionForm.linkUrl" placeholder="/shop" />
+          </el-form-item>
+        </div>
+        <el-form-item label="排序">
+          <el-input-number v-model="homeSectionForm.sortOrder" :min="0" controls-position="right" />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="homeSectionDrawerVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveHomeSection">保存</el-button>
+      </template>
+    </el-drawer>
+
+    <el-drawer
+      v-model="homeItemDrawerVisible"
+      :title="editingHomeItemId ? '编辑首页内容项' : '新增首页内容项'"
+      size="min(520px, 100%)"
+    >
+      <el-form label-position="top">
+        <div class="form-grid">
+          <el-form-item label="内容位">
+            <el-input v-model="homeItemForm.sectionCode" disabled />
+          </el-form-item>
+          <el-form-item label="类型">
+            <el-select v-model="homeItemForm.itemType">
+              <el-option label="按钮" value="button" />
+              <el-option label="主视觉图片" value="hero_image" />
+              <el-option label="小图" value="small_image" />
+              <el-option label="浮动图" value="float_image" />
+              <el-option label="分类卡片" value="category_card" />
+            </el-select>
+          </el-form-item>
+        </div>
+        <el-form-item label="标题">
+          <el-input v-model="homeItemForm.title" />
+        </el-form-item>
+        <el-form-item label="副标题">
+          <el-input v-model="homeItemForm.subtitle" />
+        </el-form-item>
+        <el-form-item label="图片">
+          <div class="image-manager">
+            <el-upload
+              drag
+              action=""
+              accept="image/*"
+              :show-file-list="false"
+              :http-request="uploadHomeItemImage"
+            >
+              <div class="upload-copy">
+                <strong>上传内容项图片</strong>
+                <span>按钮类内容可以不上传图片。</span>
+              </div>
+            </el-upload>
+            <div v-if="homeItemForm.imageUrl" class="image-row">
+              <img :src="homeItemForm.imageUrl" alt="首页内容项图片">
+              <div class="image-row-main">
+                <div class="image-row-title">
+                  <span>当前图片</span>
+                </div>
+              </div>
+              <div class="image-actions">
+                <el-button size="small" :icon="Download" @click="downloadImage(homeItemForm.imageUrl)">下载</el-button>
+                <el-button size="small" type="danger" :icon="Delete" @click="homeItemForm.imageUrl = ''" />
+              </div>
+            </div>
+          </div>
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="homeItemForm.description" type="textarea" :rows="4" />
+        </el-form-item>
+        <div class="form-grid">
+          <el-form-item label="链接文案">
+            <el-input v-model="homeItemForm.linkText" />
+          </el-form-item>
+          <el-form-item label="链接地址">
+            <el-input v-model="homeItemForm.linkUrl" placeholder="/shop" />
+          </el-form-item>
+        </div>
+        <div class="form-grid">
+          <el-form-item label="排序">
+            <el-input-number v-model="homeItemForm.sortOrder" :min="0" controls-position="right" />
+          </el-form-item>
+          <el-form-item label="状态">
+            <el-select v-model="homeItemForm.status">
+              <el-option label="启用" value="启用" />
+              <el-option label="停用" value="停用" />
+            </el-select>
+          </el-form-item>
+        </div>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="homeItemDrawerVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveHomeItem">保存</el-button>
       </template>
     </el-drawer>
   </div>
@@ -801,6 +1785,17 @@ onMounted(fetchProducts)
   object-fit: cover;
 }
 
+.image-placeholder {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 8px;
+  background: #f3f4f6;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
 .product-cell strong,
 .product-cell span {
   display: block;
@@ -890,6 +1885,264 @@ onMounted(fetchProducts)
   gap: 6px;
 }
 
+.detail-editor {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+}
+
+.detail-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.detail-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detail-section-head strong,
+.detail-section-head span {
+  display: block;
+}
+
+.detail-section-head strong {
+  color: #111827;
+}
+
+.detail-section-head span {
+  margin-top: 3px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.detail-entry-list {
+  display: grid;
+  gap: 12px;
+}
+
+.detail-entry {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.detail-entry-top {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 96px 120px;
+  gap: 8px;
+}
+
+.detail-image-box {
+  display: grid;
+  gap: 10px;
+}
+
+.detail-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.detail-empty {
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  color: #9ca3af;
+  padding: 16px;
+  text-align: center;
+}
+
+.variant-editor {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.variant-editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.variant-editor-head strong,
+.variant-editor-head span {
+  display: block;
+}
+
+.variant-editor-head strong {
+  color: #111827;
+}
+
+.variant-editor-head span {
+  margin-top: 3px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.variant-list {
+  display: grid;
+  gap: 12px;
+}
+
+.variant-card {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.variant-media {
+  display: grid;
+  width: 90px;
+  height: 90px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff1df;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.variant-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.variant-fields {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.variant-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.variant-grid:nth-child(2) {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.variant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.home-layout {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 16px;
+  min-height: 420px;
+}
+
+.home-section-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.home-section-list button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  padding: 12px;
+  text-align: left;
+}
+
+.home-section-list button.active,
+.home-section-list button:hover {
+  border-color: #e8734a;
+  background: #fff7ed;
+}
+
+.home-section-list strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-section-list span {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.home-editor {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.home-section-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  padding: 16px;
+}
+
+.home-code {
+  color: #e8734a;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.home-section-card h3 {
+  margin: 4px 0 8px;
+  color: #111827;
+  font-size: 18px;
+}
+
+.home-section-card p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.7;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.home-section-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  gap: 8px;
+}
+
 :deep(.el-button--primary) {
   --el-button-bg-color: #e8734a;
   --el-button-border-color: #e8734a;
@@ -911,6 +2164,15 @@ onMounted(fetchProducts)
   }
 
   .panel-header {
+    display: grid;
+  }
+
+  .home-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .home-section-actions,
+  .home-section-card {
     display: grid;
   }
 }
@@ -938,6 +2200,20 @@ onMounted(fetchProducts)
 
   .image-row {
     grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .detail-entry-top {
+    grid-template-columns: 1fr;
+  }
+
+  .variant-card,
+  .variant-grid,
+  .variant-grid:nth-child(2) {
+    grid-template-columns: 1fr;
+  }
+
+  .variant-editor-head {
+    display: grid;
   }
 
   .image-row img {

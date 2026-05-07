@@ -6,8 +6,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.warmisland.entity.ProductImage;
 import com.warmisland.entity.Product;
+import com.warmisland.entity.ProductDetailEntry;
+import com.warmisland.mapper.ProductDetailEntryMapper;
 import com.warmisland.mapper.ProductImageMapper;
 import com.warmisland.mapper.ProductMapper;
+import com.warmisland.entity.ProductVariant;
+import com.warmisland.mapper.ProductVariantMapper;
 import com.warmisland.service.ProductService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,9 +29,16 @@ import java.util.stream.Collectors;
 public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements ProductService {
 
     private final ProductImageMapper productImageMapper;
+    private final ProductDetailEntryMapper productDetailEntryMapper;
+    private final ProductVariantMapper productVariantMapper;
 
-    public ProductServiceImpl(ProductImageMapper productImageMapper) {
+    public ProductServiceImpl(
+            ProductImageMapper productImageMapper,
+            ProductDetailEntryMapper productDetailEntryMapper,
+            ProductVariantMapper productVariantMapper) {
         this.productImageMapper = productImageMapper;
+        this.productDetailEntryMapper = productDetailEntryMapper;
+        this.productVariantMapper = productVariantMapper;
     }
 
     @Override
@@ -50,6 +61,8 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
         IPage<Product> result = page(new Page<>(pageNum, pageSize), wrapper);
         fillProductImages(result.getRecords());
+        fillProductDetailEntries(result.getRecords(), true);
+        fillProductVariants(result.getRecords(), true);
         return result;
     }
 
@@ -59,6 +72,8 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
         if (product != null) {
             fillProductImages(List.of(product));
+            fillProductDetailEntries(List.of(product), false);
+            fillProductVariants(List.of(product), false);
         }
 
         return product;
@@ -70,6 +85,8 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         applyPrimaryImage(product);
         save(product);
         replaceProductImages(product.getId(), collectImages(product));
+        replaceProductDetailEntries(product.getId(), product.getDetailEntries());
+        replaceProductVariants(product.getId(), product.getVariants());
         return getProductById(product.getId());
     }
 
@@ -84,6 +101,8 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         }
 
         replaceProductImages(id, collectImages(product));
+        replaceProductDetailEntries(id, product.getDetailEntries());
+        replaceProductVariants(id, product.getVariants());
         return getProductById(id);
     }
 
@@ -91,6 +110,8 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     @Transactional
     public boolean deleteProduct(Long id) {
         productImageMapper.delete(new LambdaQueryWrapper<ProductImage>().eq(ProductImage::getProductId, id));
+        productDetailEntryMapper.delete(new LambdaQueryWrapper<ProductDetailEntry>().eq(ProductDetailEntry::getProductId, id));
+        productVariantMapper.delete(new LambdaQueryWrapper<ProductVariant>().eq(ProductVariant::getProductId, id));
         return removeById(id);
     }
 
@@ -101,6 +122,8 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         wrapper.last("LIMIT " + limit);
         List<Product> products = list(wrapper);
         fillProductImages(products);
+        fillProductDetailEntries(products, true);
+        fillProductVariants(products, true);
         return products;
     }
 
@@ -158,6 +181,72 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         }
     }
 
+    private void fillProductDetailEntries(List<Product> products, boolean enabledOnly) {
+        if (products == null || products.isEmpty()) {
+            return;
+        }
+
+        List<Long> productIds = products.stream()
+                .map(Product::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (productIds.isEmpty()) {
+            return;
+        }
+
+        LambdaQueryWrapper<ProductDetailEntry> wrapper = new LambdaQueryWrapper<ProductDetailEntry>()
+                .in(ProductDetailEntry::getProductId, productIds)
+                .orderByAsc(ProductDetailEntry::getProductId)
+                .orderByAsc(ProductDetailEntry::getSortOrder)
+                .orderByAsc(ProductDetailEntry::getId);
+
+        if (enabledOnly) {
+            wrapper.eq(ProductDetailEntry::getStatus, "启用");
+        }
+
+        Map<Long, List<ProductDetailEntry>> entryMap = productDetailEntryMapper.selectList(wrapper)
+                .stream()
+                .collect(Collectors.groupingBy(ProductDetailEntry::getProductId));
+
+        for (Product product : products) {
+            product.setDetailEntries(new ArrayList<>(entryMap.getOrDefault(product.getId(), Collections.emptyList())));
+        }
+    }
+
+    private void fillProductVariants(List<Product> products, boolean enabledOnly) {
+        if (products == null || products.isEmpty()) {
+            return;
+        }
+
+        List<Long> productIds = products.stream()
+                .map(Product::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (productIds.isEmpty()) {
+            return;
+        }
+
+        LambdaQueryWrapper<ProductVariant> wrapper = new LambdaQueryWrapper<ProductVariant>()
+                .in(ProductVariant::getProductId, productIds)
+                .orderByAsc(ProductVariant::getProductId)
+                .orderByAsc(ProductVariant::getSortOrder)
+                .orderByAsc(ProductVariant::getId);
+
+        if (enabledOnly) {
+            wrapper.eq(ProductVariant::getStatus, "启用");
+        }
+
+        Map<Long, List<ProductVariant>> variantMap = productVariantMapper.selectList(wrapper)
+                .stream()
+                .collect(Collectors.groupingBy(ProductVariant::getProductId));
+
+        for (Product product : products) {
+            product.setVariants(new ArrayList<>(variantMap.getOrDefault(product.getId(), Collections.emptyList())));
+        }
+    }
+
     private void applyPrimaryImage(Product product) {
         List<String> images = collectImages(product);
 
@@ -193,6 +282,52 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             image.setImageUrl(imageUrls.get(index));
             image.setSortOrder(index);
             productImageMapper.insert(image);
+        }
+    }
+
+    private void replaceProductDetailEntries(Long productId, List<ProductDetailEntry> entries) {
+        productDetailEntryMapper.delete(new LambdaQueryWrapper<ProductDetailEntry>().eq(ProductDetailEntry::getProductId, productId));
+
+        if (entries == null) {
+            return;
+        }
+
+        int index = 0;
+        for (ProductDetailEntry entry : entries) {
+            if (!StringUtils.hasText(entry.getTitle()) && !StringUtils.hasText(entry.getContent()) && !StringUtils.hasText(entry.getImageUrl())) {
+                continue;
+            }
+
+            entry.setId(null);
+            entry.setProductId(productId);
+            entry.setSectionType(StringUtils.hasText(entry.getSectionType()) ? entry.getSectionType() : "detail");
+            entry.setLayoutType(StringUtils.hasText(entry.getLayoutType()) ? entry.getLayoutType() : "text");
+            entry.setSortOrder(entry.getSortOrder() == null ? index : entry.getSortOrder());
+            entry.setStatus(StringUtils.hasText(entry.getStatus()) ? entry.getStatus() : "启用");
+            productDetailEntryMapper.insert(entry);
+            index++;
+        }
+    }
+
+    private void replaceProductVariants(Long productId, List<ProductVariant> variants) {
+        productVariantMapper.delete(new LambdaQueryWrapper<ProductVariant>().eq(ProductVariant::getProductId, productId));
+
+        if (variants == null) {
+            return;
+        }
+
+        int index = 0;
+        for (ProductVariant variant : variants) {
+            if (!StringUtils.hasText(variant.getName())) {
+                continue;
+            }
+
+            variant.setId(null);
+            variant.setProductId(productId);
+            variant.setSortOrder(variant.getSortOrder() == null ? index : variant.getSortOrder());
+            variant.setStatus(StringUtils.hasText(variant.getStatus()) ? variant.getStatus() : "启用");
+            productVariantMapper.insert(variant);
+            index++;
         }
     }
 }

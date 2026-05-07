@@ -33,7 +33,6 @@ function navigateTo(path) {
           <router-link to="/" class="nav-link text-text-main hover:text-primary transition-colors">首页</router-link>
           <router-link to="/shop" class="nav-link text-text-subtle hover:text-primary transition-colors">商品</router-link>
           <router-link to="/about" class="nav-link text-text-subtle hover:text-primary transition-colors">关于</router-link>
-          <router-link to="/admin" class="nav-link text-text-subtle hover:text-primary transition-colors">后台</router-link>
         </nav>
 
         <!-- Cart -->
@@ -65,7 +64,6 @@ function navigateTo(path) {
           <router-link to="/" @click="mobileMenuOpen = false" class="block rounded-2xl px-4 py-3 text-text-subtle hover:text-primary hover:bg-[#fff1df]">首页</router-link>
           <router-link to="/shop" @click="mobileMenuOpen = false" class="block rounded-2xl px-4 py-3 text-text-subtle hover:text-primary hover:bg-[#fff1df]">商品</router-link>
           <router-link to="/about" @click="mobileMenuOpen = false" class="block rounded-2xl px-4 py-3 text-text-subtle hover:text-primary hover:bg-[#fff1df]">关于</router-link>
-          <router-link to="/admin" @click="mobileMenuOpen = false" class="block rounded-2xl px-4 py-3 text-text-subtle hover:text-primary hover:bg-[#fff1df]">后台</router-link>
         </nav>
       </transition>
     </div>

@@ -24,6 +24,10 @@ public class Product {
     private String status;
     @TableField(exist = false)
     private List<String> images;
+    @TableField(exist = false)
+    private List<ProductDetailEntry> detailEntries;
+    @TableField(exist = false)
+    private List<ProductVariant> variants;
     @TableLogic
     private Integer deleted;
     @TableField(fill = FieldFill.INSERT)
@@ -72,6 +76,12 @@ public class Product {
 
     public List<String> getImages() { return images; }
     public void setImages(List<String> images) { this.images = images; }
+
+    public List<ProductDetailEntry> getDetailEntries() { return detailEntries; }
+    public void setDetailEntries(List<ProductDetailEntry> detailEntries) { this.detailEntries = detailEntries; }
+
+    public List<ProductVariant> getVariants() { return variants; }
+    public void setVariants(List<ProductVariant> variants) { this.variants = variants; }
 
     public Integer getDeleted() { return deleted; }
     public void setDeleted(Integer deleted) { this.deleted = deleted; }

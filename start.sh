@@ -140,7 +140,7 @@ wait_for_url "http://127.0.0.1:$BACKEND_PORT/api/products?pageNum=1&pageSize=1" 
 log "启动前端：http://127.0.0.1:$FRONTEND_PORT/admin"
 (
   cd "$FRONTEND_DIR"
-  npm run dev -- --host 127.0.0.1 --port "$FRONTEND_PORT" --strictPort
+  npm run dev -- --host  --port "$FRONTEND_PORT" --strictPort
 ) >"$LOG_DIR/frontend.log" 2>&1 &
 FRONTEND_PID="$!"
 
