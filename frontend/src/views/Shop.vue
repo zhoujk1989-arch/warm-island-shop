@@ -33,12 +33,12 @@ const filteredProducts = computed(() => {
 </script>
 
 <template>
-  <div class="min-h-screen pt-20 bg-bg-warm">
+  <div class="min-h-screen pt-14 sm:pt-20 bg-bg-warm">
     <!-- Header -->
     <div class="bg-white border-b border-border-light">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 class="text-3xl font-bold text-text-main mb-2">暖屿商店</h1>
-        <p class="text-text-subtle mb-6">探索暖屿风味的精选好物</p>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <h1 class="text-2xl sm:text-3xl font-bold text-text-main mb-2">暖屿商店</h1>
+        <p class="text-sm sm:text-base text-text-subtle mb-5 sm:mb-6">探索暖屿风味的精选好物</p>
 
         <!-- Search -->
         <div class="relative max-w-md">
@@ -46,16 +46,16 @@ const filteredProducts = computed(() => {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input v-model="searchQuery" type="text" placeholder="搜索商品..."
-            class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-light bg-bg-warm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
+            class="w-full pl-10 pr-4 py-3 sm:py-2.5 rounded-2xl sm:rounded-xl border border-border-light bg-bg-warm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
         </div>
       </div>
     </div>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       <!-- Category filter -->
-      <div class="flex flex-wrap gap-2 mb-8">
+      <div class="flex gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
         <button v-for="cat in categories" :key="cat" @click="selectedCategory = cat"
-          class="px-5 py-2 rounded-full text-sm font-medium transition-all duration-300"
+          class="shrink-0 px-5 py-2.5 sm:py-2 rounded-full text-sm font-medium transition-all duration-300"
           :class="selectedCategory === cat
             ? 'bg-primary text-white shadow-md shadow-primary/25'
             : 'bg-white text-text-subtle border border-border-light hover:border-primary hover:text-primary'">
@@ -64,7 +64,7 @@ const filteredProducts = computed(() => {
       </div>
 
       <!-- Product grid -->
-      <div v-if="filteredProducts.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div v-if="filteredProducts.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <ProductCard v-for="product in filteredProducts" :key="product.id" :product="product" />
       </div>
 

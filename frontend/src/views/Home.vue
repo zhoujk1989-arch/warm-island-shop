@@ -14,47 +14,47 @@ const categories = [
 
 <template>
   <div class="min-h-screen bg-[#fffaf2] text-text-main">
-    <section class="relative min-h-[92vh] flex items-center overflow-hidden bg-[radial-gradient(circle_at_18%_24%,#ffe7d2_0,#ffe7d200_34%),linear-gradient(135deg,#fffaf2_0%,#fff3e2_48%,#f4e4d1_100%)]">
+    <section class="relative min-h-[auto] sm:min-h-[92vh] flex items-center overflow-hidden bg-[radial-gradient(circle_at_18%_24%,#ffe7d2_0,#ffe7d200_34%),linear-gradient(135deg,#fffaf2_0%,#fff3e2_48%,#f4e4d1_100%)]">
       <div class="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/70 to-transparent"></div>
       <div class="absolute top-24 right-8 w-64 h-64 bg-[#f3b17f]/20 rounded-full blur-3xl animate-float"></div>
       <div class="absolute bottom-16 left-6 w-80 h-80 bg-[#d8b894]/18 rounded-full blur-3xl animate-float" style="animation-delay: 1.5s;"></div>
 
-      <div class="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 pt-28 pb-20 relative z-10">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-14 sm:pb-20 relative z-10">
         <div class="grid lg:grid-cols-[1.02fr_0.98fr] gap-12 lg:gap-16 items-center">
           <div class="animate-fade-in-up">
-            <span class="inline-flex items-center gap-2 px-4 py-2 bg-white/70 text-[#b9683e] rounded-full text-sm font-medium mb-6 border border-[#f3d7bf] shadow-sm">
+            <span class="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 bg-white/70 text-[#b9683e] rounded-full text-xs sm:text-sm font-medium mb-5 sm:mb-6 border border-[#f3d7bf] shadow-sm">
               <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
               暖屿手作 · 治愈系小店
             </span>
-            <h1 class="text-4xl sm:text-5xl lg:text-7xl font-bold text-[#3f3329] leading-[1.08] tracking-normal mb-6">
+            <h1 class="text-[2.55rem] sm:text-5xl lg:text-7xl font-bold text-[#3f3329] leading-[1.1] tracking-normal mb-5 sm:mb-6">
               把慢下来的<br>
               <span class="text-primary">温柔日常</span><br class="hidden sm:block">
               做成礼物
             </h1>
-            <p class="text-base sm:text-lg text-[#756252] mb-9 max-w-xl leading-8">
+            <p class="text-base sm:text-lg text-[#756252] mb-7 sm:mb-9 max-w-xl leading-7 sm:leading-8">
               我们在一间小小手作室里调配饮品、烘烤甜点、整理香气与布料。每一件暖屿好物，都想陪你把平凡的一天过得更柔软一点。
             </p>
-            <div class="flex flex-wrap gap-4">
-              <router-link to="/shop" class="px-8 py-3.5 bg-primary text-white rounded-full font-medium hover:bg-primary-dark transition-all duration-300 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-1">
+            <div class="grid grid-cols-1 sm:flex sm:flex-wrap gap-3 sm:gap-4">
+              <router-link to="/shop" class="text-center px-7 sm:px-8 py-3.5 bg-primary text-white rounded-full font-medium hover:bg-primary-dark transition-all duration-300 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-1">
                 逛逛手作好物
               </router-link>
-              <router-link to="/about" class="px-8 py-3.5 bg-white/75 border border-[#edcfb6] text-[#6d5542] rounded-full font-medium hover:text-primary hover:border-primary/50 hover:shadow-lg hover:shadow-primary/15 hover:-translate-y-1 transition-all duration-300">
+              <router-link to="/about" class="text-center px-7 sm:px-8 py-3.5 bg-white/75 border border-[#edcfb6] text-[#6d5542] rounded-full font-medium hover:text-primary hover:border-primary/50 hover:shadow-lg hover:shadow-primary/15 hover:-translate-y-1 transition-all duration-300">
                 听听小店故事
               </router-link>
             </div>
 
-            <div class="grid grid-cols-3 gap-3 sm:gap-5 mt-12 max-w-xl">
-              <div class="rounded-3xl bg-white/62 border border-[#f0d8c5] px-4 py-5 shadow-sm">
-                <div class="text-2xl sm:text-3xl font-bold text-[#4a372b]">8+</div>
-                <div class="text-xs sm:text-sm text-[#8a7463] mt-1">手作选品</div>
+            <div class="grid grid-cols-3 gap-2.5 sm:gap-5 mt-9 sm:mt-12 max-w-xl">
+              <div class="rounded-2xl sm:rounded-3xl bg-white/62 border border-[#f0d8c5] px-3 sm:px-4 py-4 sm:py-5 shadow-sm">
+                <div class="text-xl sm:text-3xl font-bold text-[#4a372b]">8+</div>
+                <div class="text-[11px] sm:text-sm text-[#8a7463] mt-1">手作选品</div>
               </div>
-              <div class="rounded-3xl bg-white/62 border border-[#f0d8c5] px-4 py-5 shadow-sm">
-                <div class="text-2xl sm:text-3xl font-bold text-[#4a372b]">4.8</div>
-                <div class="text-xs sm:text-sm text-[#8a7463] mt-1">治愈评分</div>
+              <div class="rounded-2xl sm:rounded-3xl bg-white/62 border border-[#f0d8c5] px-3 sm:px-4 py-4 sm:py-5 shadow-sm">
+                <div class="text-xl sm:text-3xl font-bold text-[#4a372b]">4.8</div>
+                <div class="text-[11px] sm:text-sm text-[#8a7463] mt-1">治愈评分</div>
               </div>
-              <div class="rounded-3xl bg-white/62 border border-[#f0d8c5] px-4 py-5 shadow-sm">
-                <div class="text-2xl sm:text-3xl font-bold text-[#4a372b]">5K+</div>
-                <div class="text-xs sm:text-sm text-[#8a7463] mt-1">温暖陪伴</div>
+              <div class="rounded-2xl sm:rounded-3xl bg-white/62 border border-[#f0d8c5] px-3 sm:px-4 py-4 sm:py-5 shadow-sm">
+                <div class="text-xl sm:text-3xl font-bold text-[#4a372b]">5K+</div>
+                <div class="text-[11px] sm:text-sm text-[#8a7463] mt-1">温暖陪伴</div>
               </div>
             </div>
           </div>
@@ -100,25 +100,25 @@ const categories = [
         </div>
       </div>
 
-      <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+      <div class="hidden sm:block absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
         <svg class="w-6 h-6 text-[#8a7463]/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
         </svg>
       </div>
     </section>
 
-    <section class="py-20 sm:py-24 bg-[#fffaf2]">
-      <div class="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
-        <div class="text-center mb-12 animate-fade-in-up">
+    <section class="py-14 sm:py-24 bg-[#fffaf2]">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-8 sm:mb-12 animate-fade-in-up">
           <span class="text-sm font-medium text-primary">慢慢挑选</span>
-          <h2 class="text-3xl sm:text-4xl font-bold text-[#3f3329] mt-3 mb-4">暖屿今日手作</h2>
+          <h2 class="text-2xl sm:text-4xl font-bold text-[#3f3329] mt-3 mb-4">暖屿今日手作</h2>
           <p class="text-[#7a6758] max-w-md mx-auto leading-7">从饮品香气到烘焙甜点，再到能带回家的小物，每一类都保留一点手作温度。</p>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 stagger-children">
           <div v-for="cat in categories" :key="cat.name" class="group cursor-pointer">
-            <router-link to="/shop" class="block h-full p-5 rounded-[2rem] bg-white/78 border border-[#efd9c6] shadow-sm shadow-[#d8a06d]/10 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-[#d8a06d]/18 hover:border-primary/35">
-              <div class="aspect-[1.28] rounded-[1.6rem] bg-[#fff0de] border border-[#f1d3bb] overflow-hidden mb-6">
+            <router-link to="/shop" class="block h-full p-4 sm:p-5 rounded-[1.6rem] sm:rounded-[2rem] bg-white/78 border border-[#efd9c6] shadow-sm shadow-[#d8a06d]/10 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-[#d8a06d]/18 hover:border-primary/35">
+              <div class="aspect-[1.55] sm:aspect-[1.28] rounded-[1.25rem] sm:rounded-[1.6rem] bg-[#fff0de] border border-[#f1d3bb] overflow-hidden mb-4 sm:mb-6">
                 <img :src="cat.image" :alt="cat.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
               </div>
               <h3 class="text-xl font-semibold text-[#49382d] mb-2">{{ cat.name }}</h3>
@@ -130,15 +130,15 @@ const categories = [
       </div>
     </section>
 
-    <section class="py-20 sm:py-24 bg-[#f7eadc]">
-      <div class="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
-        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5 mb-12 animate-fade-in-up">
+    <section class="py-14 sm:py-24 bg-[#f7eadc]">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5 mb-8 sm:mb-12 animate-fade-in-up">
           <div>
             <span class="text-sm font-medium text-primary">被反复带走的温柔</span>
-            <h2 class="text-3xl sm:text-4xl font-bold text-[#3f3329] mt-3 mb-3">人气手作好物</h2>
+            <h2 class="text-2xl sm:text-4xl font-bold text-[#3f3329] mt-3 mb-3">人气手作好物</h2>
             <p class="text-[#7a6758]">暖屿最受欢迎的几件小东西，适合自留，也适合送人。</p>
           </div>
-          <router-link to="/shop" class="inline-flex items-center gap-2 self-start sm:self-auto px-5 py-3 bg-primary text-white rounded-full font-medium shadow-lg shadow-primary/20 hover:bg-primary-dark hover:shadow-xl hover:shadow-primary/25 hover:-translate-y-1 transition-all duration-300">
+          <router-link to="/shop" class="inline-flex items-center justify-center gap-2 self-stretch sm:self-auto px-5 py-3 bg-primary text-white rounded-full font-medium shadow-lg shadow-primary/20 hover:bg-primary-dark hover:shadow-xl hover:shadow-primary/25 hover:-translate-y-1 transition-all duration-300">
             查看全部
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -146,18 +146,18 @@ const categories = [
           </router-link>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 stagger-children">
           <ProductCard v-for="product in featuredProducts" :key="product.id" :product="product" />
         </div>
       </div>
     </section>
 
-    <section class="py-20 sm:py-24 bg-[#fffaf2]">
-      <div class="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
-        <div class="grid md:grid-cols-2 gap-16 items-center">
+    <section class="py-14 sm:py-24 bg-[#fffaf2]">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid md:grid-cols-2 gap-10 sm:gap-16 items-center">
           <div class="relative animate-slide-left">
-            <div class="absolute -inset-4 rounded-[2.5rem] bg-[#f0d2b7]/30 rotate-3"></div>
-            <div class="relative aspect-[1.04] rounded-[2.5rem] bg-white border border-[#efd9c6] shadow-xl shadow-[#d8a06d]/12 flex items-center justify-center overflow-hidden">
+            <div class="absolute -inset-2 sm:-inset-4 rounded-[2rem] sm:rounded-[2.5rem] bg-[#f0d2b7]/30 rotate-3"></div>
+            <div class="relative aspect-[1.2] sm:aspect-[1.04] rounded-[2rem] sm:rounded-[2.5rem] bg-white border border-[#efd9c6] shadow-xl shadow-[#d8a06d]/12 flex items-center justify-center overflow-hidden">
               <img src="/products/tote.jpg" alt="暖屿手作包装与帆布袋" class="absolute inset-0 w-full h-full object-cover">
               <div class="absolute inset-0 bg-gradient-to-t from-[#3f2c1f]/38 via-[#3f2c1f]/6 to-white/10"></div>
               <div class="relative text-center px-8 mt-auto mb-10">
@@ -168,14 +168,14 @@ const categories = [
 
           <div class="animate-slide-right">
             <span class="text-sm font-medium text-primary">关于暖屿</span>
-            <h2 class="text-3xl sm:text-4xl font-bold text-[#3f3329] mt-3 mb-6">一间把温柔做进日常的小店</h2>
-            <p class="text-[#756252] mb-4 leading-8">
+            <h2 class="text-2xl sm:text-4xl font-bold text-[#3f3329] mt-3 mb-5 sm:mb-6">一间把温柔做进日常的小店</h2>
+            <p class="text-[#756252] mb-4 leading-7 sm:leading-8">
               暖屿手作从一张木桌开始。我们喜欢奶油色的纸袋、刚出炉的黄油香、手写标签和拆开包裹时那一点点被照顾到的心情。
             </p>
-            <p class="text-[#756252] mb-8 leading-8">
+            <p class="text-[#756252] mb-7 sm:mb-8 leading-7 sm:leading-8">
               从一杯特调咖啡，到一块手作甜点；从一个帆布袋，到一支香薰蜡烛，每一件商品都用柔和颜色、自然材质和小批量制作，留住慢生活里的安静片刻。
             </p>
-            <router-link to="/about" class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-full font-medium shadow-lg shadow-primary/20 hover:bg-primary-dark hover:shadow-xl hover:shadow-primary/25 hover:-translate-y-1 transition-all duration-300">
+            <router-link to="/about" class="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-full font-medium shadow-lg shadow-primary/20 hover:bg-primary-dark hover:shadow-xl hover:shadow-primary/25 hover:-translate-y-1 transition-all duration-300">
               了解我们的故事
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -186,10 +186,10 @@ const categories = [
       </div>
     </section>
 
-    <section class="py-20 sm:py-24 bg-[#f4dfc9]">
-      <div class="max-w-4xl mx-auto px-5 sm:px-6 lg:px-8 text-center">
-        <div class="rounded-[2.5rem] bg-gradient-to-br from-primary to-primary-dark text-white px-6 sm:px-12 py-14 sm:py-16 shadow-2xl shadow-primary/20">
-          <h2 class="text-3xl sm:text-4xl font-bold mb-4">给今天留一份暖意</h2>
+    <section class="py-14 sm:py-24 bg-[#f4dfc9]">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div class="rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-br from-primary to-primary-dark text-white px-5 sm:px-12 py-10 sm:py-16 shadow-2xl shadow-primary/20">
+          <h2 class="text-2xl sm:text-4xl font-bold mb-4">给今天留一份暖意</h2>
           <p class="text-white/86 mb-8 text-base sm:text-lg leading-8">挑一件喜欢的手作好物，让奶油色、木质香和一点点甜，陪你慢慢度过这一天。</p>
           <router-link to="/shop" class="inline-block px-10 py-4 bg-white text-primary rounded-full font-semibold hover:bg-[#fff7ed] transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1">
             去逛逛

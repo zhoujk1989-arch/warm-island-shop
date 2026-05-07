@@ -17,12 +17,12 @@ function navigateTo(path) {
 </script>
 
 <template>
-  <header class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-border-light">
+  <header class="fixed top-0 left-0 right-0 z-50 bg-white/88 backdrop-blur-md border-b border-[#efd9c6]">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
+      <div class="flex items-center justify-between h-14 sm:h-16">
         <!-- Logo -->
         <div class="flex items-center gap-2 cursor-pointer" @click="navigateTo('/')">
-          <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+          <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm shadow-primary/20">
             <span class="text-white text-sm font-bold">暖</span>
           </div>
           <span class="text-lg font-semibold text-text-main">暖屿</span>
@@ -37,7 +37,7 @@ function navigateTo(path) {
 
         <!-- Cart -->
         <div class="flex items-center gap-4">
-          <button @click="navigateTo('/cart')" class="relative p-2 hover:bg-bg-warm rounded-full transition-colors">
+          <button @click="navigateTo('/cart')" class="relative p-2 hover:bg-[#fff1df] rounded-full transition-colors">
             <svg class="w-5 h-5 text-text-main" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
             </svg>
@@ -47,7 +47,7 @@ function navigateTo(path) {
           </button>
 
           <!-- Mobile menu button -->
-          <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 hover:bg-bg-warm rounded-full">
+          <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 hover:bg-[#fff1df] rounded-full">
             <svg v-if="!mobileMenuOpen" class="w-5 h-5 text-text-main" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -60,10 +60,10 @@ function navigateTo(path) {
 
       <!-- Mobile Nav -->
       <transition name="slide">
-        <nav v-if="mobileMenuOpen" class="md:hidden py-4 border-t border-border-light">
-          <router-link to="/" @click="mobileMenuOpen = false" class="block py-2 text-text-subtle hover:text-primary">首页</router-link>
-          <router-link to="/shop" @click="mobileMenuOpen = false" class="block py-2 text-text-subtle hover:text-primary">商品</router-link>
-          <router-link to="/about" @click="mobileMenuOpen = false" class="block py-2 text-text-subtle hover:text-primary">关于</router-link>
+        <nav v-if="mobileMenuOpen" class="md:hidden py-3 border-t border-[#efd9c6]">
+          <router-link to="/" @click="mobileMenuOpen = false" class="block rounded-2xl px-4 py-3 text-text-subtle hover:text-primary hover:bg-[#fff1df]">首页</router-link>
+          <router-link to="/shop" @click="mobileMenuOpen = false" class="block rounded-2xl px-4 py-3 text-text-subtle hover:text-primary hover:bg-[#fff1df]">商品</router-link>
+          <router-link to="/about" @click="mobileMenuOpen = false" class="block rounded-2xl px-4 py-3 text-text-subtle hover:text-primary hover:bg-[#fff1df]">关于</router-link>
         </nav>
       </transition>
     </div>
