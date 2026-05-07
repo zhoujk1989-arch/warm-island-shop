@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import CategoryManager from './admin/CategoryManager.vue'
+import HomeManager from './admin/HomeManager.vue'
 import {
   Box,
   Delete,
@@ -283,6 +285,7 @@ function openCreateDrawer() {
   editingId.value = null
   resetForm()
   productForm.category = enabledCategories.value[0]?.name || ''
+  addVariant()
   drawerVisible.value = true
 }
 
@@ -306,52 +309,6 @@ function openEditDrawer(product) {
     tags: product.tags.join('、'),
   })
   drawerVisible.value = true
-}
-
-function syncPrimaryImage() {
-  productForm.image = productForm.images[0] || productForm.image || '/products/coffee.jpg'
-}
-
-function removeImage(index) {
-  productForm.images.splice(index, 1)
-  syncPrimaryImage()
-}
-
-function moveImage(index, direction) {
-  const nextIndex = index + direction
-
-  if (nextIndex < 0 || nextIndex >= productForm.images.length) {
-    return
-  }
-
-  const [image] = productForm.images.splice(index, 1)
-  productForm.images.splice(nextIndex, 0, image)
-  syncPrimaryImage()
-}
-
-async function uploadProductImage({ file, onSuccess, onError }) {
-  const formData = new FormData()
-  formData.append('file', file)
-
-  try {
-    const response = await fetch(`${API_BASE}/upload`, {
-      method: 'POST',
-      body: formData,
-    })
-    const result = await response.json()
-
-    if (!response.ok || result.code !== 200) {
-      throw new Error(result.message || '上传失败')
-    }
-
-    productForm.images.push(result.data)
-    syncPrimaryImage()
-    ElMessage.success('图片已上传')
-    onSuccess(result)
-  } catch (error) {
-    ElMessage.error(`图片上传失败：${error.message}`)
-    onError(error)
-  }
 }
 
 async function downloadImage(image) {
@@ -483,7 +440,7 @@ function addVariant() {
     price: Number(productForm.price) || 0,
     originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : null,
     stock: Number(productForm.stock) || 0,
-    imageUrl: productForm.images[0] || productForm.image,
+    imageUrl: '',
     sortOrder: productForm.variants.length + 1,
     status: '启用',
   })
@@ -522,10 +479,11 @@ async function saveProduct() {
     return
   }
 
-  const images = productForm.images.map((image) => image.trim()).filter(Boolean)
+  const variants = normalizeVariants(productForm.variants)
+  const images = variants.map((variant) => variant.imageUrl).filter(Boolean)
 
   if (images.length === 0) {
-    ElMessage.warning('请至少上传一张商品图片')
+    ElMessage.warning('请至少维护一个带图片的商品款式')
     return
   }
 
@@ -537,7 +495,7 @@ async function saveProduct() {
     originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : null,
     image: images[0],
     images,
-    variants: normalizeVariants(productForm.variants),
+    variants,
     detailEntries: normalizeDetailEntries(productForm.detailEntries),
     rating: Number(productForm.rating) || 4.8,
     soldCount: Number(productForm.soldCount) || 0,
@@ -928,22 +886,6 @@ onMounted(() => {
             >
               新增商品
             </el-button>
-            <el-button
-              v-else-if="activeSection === 'categories'"
-              type="primary"
-              :icon="Plus"
-              @click="openCreateCategoryDrawer"
-            >
-              新增分类
-            </el-button>
-            <el-button
-              v-else-if="activeSection === 'home' && currentHomeSection"
-              type="primary"
-              :icon="Plus"
-              @click="openCreateHomeItem(currentHomeSection.code)"
-            >
-              新增首页内容
-            </el-button>
           </div>
         </section>
 
@@ -1031,127 +973,16 @@ onMounted(() => {
           </div>
         </section>
 
-        <section v-else-if="activeSection === 'categories'" class="panel">
-          <div class="panel-header">
-            <div>
-              <h2>分类维护</h2>
-              <p>维护商品分类，商品编辑时只能从启用分类中选择。</p>
-            </div>
-            <el-button type="primary" :icon="Plus" @click="openCreateCategoryDrawer">新增分类</el-button>
-          </div>
+        <CategoryManager v-else-if="activeSection === 'categories'" />
 
-          <div class="table-wrap">
-            <el-table v-loading="categoryLoading" :data="categoryList" row-key="id">
-              <el-table-column prop="name" label="分类名称" min-width="180" />
-              <el-table-column prop="sortOrder" label="排序" width="100" />
-              <el-table-column label="状态" width="110">
-                <template #default="{ row }">
-                  <el-tag :type="row.status === '启用' ? 'success' : 'info'">{{ row.status }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="updateTime" label="更新日期" min-width="180" />
-              <el-table-column label="操作" fixed="right" width="250">
-                <template #default="{ row }">
-                  <el-button size="small" :icon="Edit" @click="openEditCategoryDrawer(row)">编辑</el-button>
-                  <el-button size="small" @click="toggleCategoryStatus(row)">
-                    {{ row.status === '启用' ? '停用' : '启用' }}
-                  </el-button>
-                  <el-button size="small" type="danger" :icon="Delete" @click="removeCategory(row)" />
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-        </section>
-
-        <section v-else-if="activeSection === 'home'" class="panel">
-          <div class="panel-header">
-            <div>
-              <h2>首页装修</h2>
-              <p>维护首页固定内容位、推广文案、按钮和图片，前台会从数据库实时读取。</p>
-            </div>
-            <el-button
-              v-if="currentHomeSection"
-              type="primary"
-              :icon="Plus"
-              @click="openCreateHomeItem(currentHomeSection.code)"
-            >
-              新增首页内容
-            </el-button>
-          </div>
-
-          <div class="home-layout" v-loading="homeLoading">
-            <aside class="home-section-list">
-              <button
-                v-for="section in homeSections"
-                :key="section.code"
-                :class="{ active: activeHomeSectionCode === section.code }"
-                @click="activeHomeSectionCode = section.code"
-              >
-                <strong>{{ section.title || section.code }}</strong>
-                <span>{{ section.code }} · {{ section.status }}</span>
-              </button>
-            </aside>
-
-            <div v-if="currentHomeSection" class="home-editor">
-              <div class="home-section-card">
-                <div>
-                  <span class="home-code">{{ currentHomeSection.code }}</span>
-                  <h3>{{ currentHomeSection.title }}</h3>
-                  <p>{{ currentHomeSection.body }}</p>
-                </div>
-                <div class="home-section-actions">
-                  <el-tag :type="currentHomeSection.status === '启用' ? 'success' : 'info'">
-                    {{ currentHomeSection.status }}
-                  </el-tag>
-                  <el-button size="small" :icon="Edit" @click="openEditHomeSection(currentHomeSection)">编辑内容位</el-button>
-                  <el-button size="small" @click="toggleHomeSectionStatus(currentHomeSection)">
-                    {{ currentHomeSection.status === '启用' ? '停用' : '启用' }}
-                  </el-button>
-                </div>
-              </div>
-
-              <div class="table-wrap">
-                <el-table :data="currentHomeSection.items || []" row-key="id">
-                  <el-table-column label="内容项" min-width="240">
-                    <template #default="{ row }">
-                      <div class="product-cell">
-                        <img v-if="row.imageUrl" :src="row.imageUrl" :alt="row.title" />
-                        <div v-else class="image-placeholder">无图</div>
-                        <div>
-                          <strong>{{ row.title }}</strong>
-                          <span>{{ row.subtitle || row.description || row.linkUrl || '-' }}</span>
-                        </div>
-                      </div>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="itemType" label="类型" width="130" />
-                  <el-table-column prop="sortOrder" label="排序" width="90" />
-                  <el-table-column label="状态" width="100">
-                    <template #default="{ row }">
-                      <el-tag :type="row.status === '启用' ? 'success' : 'info'">{{ row.status }}</el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="操作" fixed="right" width="250">
-                    <template #default="{ row }">
-                      <el-button size="small" :icon="Edit" @click="openEditHomeItem(row)">编辑</el-button>
-                      <el-button size="small" @click="toggleHomeItemStatus(row)">
-                        {{ row.status === '启用' ? '停用' : '启用' }}
-                      </el-button>
-                      <el-button size="small" type="danger" :icon="Delete" @click="removeHomeItem(row)" />
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
-            </div>
-          </div>
-        </section>
+        <HomeManager v-else-if="activeSection === 'home'" />
       </main>
     </div>
 
     <el-drawer
       v-model="drawerVisible"
       :title="editingId ? '编辑商品' : '新增商品'"
-      size="min(520px, 100%)"
+      size="min(920px, 100%)"
     >
       <el-form label-position="top">
         <el-form-item label="商品名称">
@@ -1159,40 +990,6 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="英文名称">
           <el-input v-model="productForm.nameEn" placeholder="Warm Island Coffee" />
-        </el-form-item>
-        <el-form-item label="商品图片">
-          <div class="image-manager">
-            <el-upload
-              drag
-              action=""
-              accept="image/*"
-              :show-file-list="false"
-              :http-request="uploadProductImage"
-            >
-              <div class="upload-copy">
-                <strong>上传商品图片</strong>
-                <span>支持多张图片，保存时按下方顺序展示。</span>
-              </div>
-            </el-upload>
-
-            <div class="image-list">
-              <div v-for="(image, index) in productForm.images" :key="`${image}-${index}`" class="image-row">
-                <img :src="image" :alt="`商品图片 ${index + 1}`">
-                <div class="image-row-main">
-                  <div class="image-row-title">
-                    <span>第 {{ index + 1 }} 张</span>
-                    <el-tag v-if="index === 0" size="small" type="success">主图</el-tag>
-                  </div>
-                </div>
-                <div class="image-actions">
-                  <el-button size="small" :disabled="index === 0" @click="moveImage(index, -1)">上移</el-button>
-                  <el-button size="small" :disabled="index === productForm.images.length - 1" @click="moveImage(index, 1)">下移</el-button>
-                  <el-button size="small" :icon="Download" @click="downloadImage(image)">下载</el-button>
-                  <el-button size="small" type="danger" :icon="Delete" @click="removeImage(index)" />
-                </div>
-              </div>
-            </div>
-          </div>
         </el-form-item>
         <div class="form-grid">
           <el-form-item label="分类">
@@ -1240,10 +1037,10 @@ onMounted(() => {
         <el-form-item label="款式维护">
           <div class="variant-editor">
             <div class="variant-editor-head">
-              <div>
-                <strong>同一商品不同款式</strong>
-                <span>维护颜色、规格、套装等款式，前台详情页可选择并联动价格、库存和图片。</span>
-              </div>
+                <div>
+                  <strong>同一商品不同款式</strong>
+                  <span>维护颜色、规格、套装等款式；商品展示图和详情页图片会按款式图片排序生成。</span>
+                </div>
               <el-button size="small" :icon="Plus" @click="addVariant">新增款式</el-button>
             </div>
 
@@ -1254,18 +1051,30 @@ onMounted(() => {
                   <span v-else>款式图</span>
                 </div>
                 <div class="variant-fields">
-                  <div class="variant-grid">
+                  <div class="variant-main-grid">
                     <el-input v-model="variant.name" placeholder="款式名称，例如：奶油白 / 250ml" />
                     <el-input v-model="variant.skuCode" placeholder="款式编码，例如：CUP-WHITE-250" />
                   </div>
-                  <div class="variant-grid">
-                    <el-input-number v-model="variant.price" :min="0" controls-position="right" placeholder="售价" />
-                    <el-input-number v-model="variant.originalPrice" :min="0" controls-position="right" placeholder="原价" />
-                    <el-input-number v-model="variant.stock" :min="0" controls-position="right" placeholder="库存" />
+                  <div class="variant-price-grid">
+                    <label>
+                      <span>售价</span>
+                      <el-input-number v-model="variant.price" :min="0" controls-position="right" />
+                    </label>
+                    <label>
+                      <span>原价</span>
+                      <el-input-number v-model="variant.originalPrice" :min="0" controls-position="right" />
+                    </label>
+                    <label>
+                      <span>库存</span>
+                      <el-input-number v-model="variant.stock" :min="0" controls-position="right" />
+                    </label>
+                    <label>
+                      <span>状态</span>
                     <el-select v-model="variant.status" placeholder="状态">
                       <el-option label="启用" value="启用" />
                       <el-option label="停用" value="停用" />
                     </el-select>
+                    </label>
                   </div>
                   <div class="variant-actions">
                     <el-upload
@@ -1274,7 +1083,7 @@ onMounted(() => {
                       :show-file-list="false"
                       :http-request="({ file, onSuccess, onError }) => uploadVariantImage(variant, file).then(() => onSuccess({ code: 200 })).catch(onError)"
                     >
-                      <el-button size="small">上传款式图</el-button>
+                      <el-button size="small" type="primary">上传款式图</el-button>
                     </el-upload>
                     <el-button size="small" :disabled="index === 0" @click="moveVariant(index, -1)">上移</el-button>
                     <el-button size="small" :disabled="index === productForm.variants.length - 1" @click="moveVariant(index, 1)">下移</el-button>
@@ -1375,188 +1184,6 @@ onMounted(() => {
       </template>
     </el-drawer>
 
-    <el-drawer
-      v-model="categoryDrawerVisible"
-      :title="editingCategoryId ? '编辑分类' : '新增分类'"
-      size="min(420px, 100%)"
-    >
-      <el-form label-position="top">
-        <el-form-item label="分类名称">
-          <el-input v-model="categoryForm.name" placeholder="例如：饮品" />
-        </el-form-item>
-        <el-form-item label="排序">
-          <el-input-number v-model="categoryForm.sortOrder" :min="0" controls-position="right" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="categoryForm.status">
-            <el-option label="启用" value="启用" />
-            <el-option label="停用" value="停用" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="categoryDrawerVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveCategory">保存</el-button>
-      </template>
-    </el-drawer>
-
-    <el-drawer
-      v-model="homeSectionDrawerVisible"
-      title="编辑首页内容位"
-      size="min(520px, 100%)"
-    >
-      <el-form label-position="top">
-        <el-form-item label="内容位编码">
-          <el-input v-model="homeSectionForm.code" disabled />
-        </el-form-item>
-        <div class="form-grid">
-          <el-form-item label="眉标">
-            <el-input v-model="homeSectionForm.eyebrow" />
-          </el-form-item>
-          <el-form-item label="状态">
-            <el-select v-model="homeSectionForm.status">
-              <el-option label="启用" value="启用" />
-              <el-option label="停用" value="停用" />
-            </el-select>
-          </el-form-item>
-        </div>
-        <el-form-item label="标题">
-          <el-input v-model="homeSectionForm.title" type="textarea" :rows="2" />
-        </el-form-item>
-        <el-form-item label="图片">
-          <div class="image-manager">
-            <el-upload
-              drag
-              action=""
-              accept="image/*"
-              :show-file-list="false"
-              :http-request="uploadHomeSectionImage"
-            >
-              <div class="upload-copy">
-                <strong>上传内容位图片</strong>
-                <span>上传后自动替换当前图片。</span>
-              </div>
-            </el-upload>
-            <div v-if="homeSectionForm.imageUrl" class="image-row">
-              <img :src="homeSectionForm.imageUrl" alt="首页内容位图片">
-              <div class="image-row-main">
-                <div class="image-row-title">
-                  <span>当前图片</span>
-                </div>
-              </div>
-              <div class="image-actions">
-                <el-button size="small" :icon="Download" @click="downloadImage(homeSectionForm.imageUrl)">下载</el-button>
-                <el-button size="small" type="danger" :icon="Delete" @click="homeSectionForm.imageUrl = ''" />
-              </div>
-            </div>
-          </div>
-        </el-form-item>
-        <el-form-item label="正文">
-          <el-input v-model="homeSectionForm.body" type="textarea" :rows="5" />
-        </el-form-item>
-        <div class="form-grid">
-          <el-form-item label="按钮文案">
-            <el-input v-model="homeSectionForm.linkText" />
-          </el-form-item>
-          <el-form-item label="按钮链接">
-            <el-input v-model="homeSectionForm.linkUrl" placeholder="/shop" />
-          </el-form-item>
-        </div>
-        <el-form-item label="排序">
-          <el-input-number v-model="homeSectionForm.sortOrder" :min="0" controls-position="right" />
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="homeSectionDrawerVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveHomeSection">保存</el-button>
-      </template>
-    </el-drawer>
-
-    <el-drawer
-      v-model="homeItemDrawerVisible"
-      :title="editingHomeItemId ? '编辑首页内容项' : '新增首页内容项'"
-      size="min(520px, 100%)"
-    >
-      <el-form label-position="top">
-        <div class="form-grid">
-          <el-form-item label="内容位">
-            <el-input v-model="homeItemForm.sectionCode" disabled />
-          </el-form-item>
-          <el-form-item label="类型">
-            <el-select v-model="homeItemForm.itemType">
-              <el-option label="按钮" value="button" />
-              <el-option label="主视觉图片" value="hero_image" />
-              <el-option label="小图" value="small_image" />
-              <el-option label="浮动图" value="float_image" />
-              <el-option label="分类卡片" value="category_card" />
-            </el-select>
-          </el-form-item>
-        </div>
-        <el-form-item label="标题">
-          <el-input v-model="homeItemForm.title" />
-        </el-form-item>
-        <el-form-item label="副标题">
-          <el-input v-model="homeItemForm.subtitle" />
-        </el-form-item>
-        <el-form-item label="图片">
-          <div class="image-manager">
-            <el-upload
-              drag
-              action=""
-              accept="image/*"
-              :show-file-list="false"
-              :http-request="uploadHomeItemImage"
-            >
-              <div class="upload-copy">
-                <strong>上传内容项图片</strong>
-                <span>按钮类内容可以不上传图片。</span>
-              </div>
-            </el-upload>
-            <div v-if="homeItemForm.imageUrl" class="image-row">
-              <img :src="homeItemForm.imageUrl" alt="首页内容项图片">
-              <div class="image-row-main">
-                <div class="image-row-title">
-                  <span>当前图片</span>
-                </div>
-              </div>
-              <div class="image-actions">
-                <el-button size="small" :icon="Download" @click="downloadImage(homeItemForm.imageUrl)">下载</el-button>
-                <el-button size="small" type="danger" :icon="Delete" @click="homeItemForm.imageUrl = ''" />
-              </div>
-            </div>
-          </div>
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="homeItemForm.description" type="textarea" :rows="4" />
-        </el-form-item>
-        <div class="form-grid">
-          <el-form-item label="链接文案">
-            <el-input v-model="homeItemForm.linkText" />
-          </el-form-item>
-          <el-form-item label="链接地址">
-            <el-input v-model="homeItemForm.linkUrl" placeholder="/shop" />
-          </el-form-item>
-        </div>
-        <div class="form-grid">
-          <el-form-item label="排序">
-            <el-input-number v-model="homeItemForm.sortOrder" :min="0" controls-position="right" />
-          </el-form-item>
-          <el-form-item label="状态">
-            <el-select v-model="homeItemForm.status">
-              <el-option label="启用" value="启用" />
-              <el-option label="停用" value="停用" />
-            </el-select>
-          </el-form-item>
-        </div>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="homeItemDrawerVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveHomeItem">保存</el-button>
-      </template>
-    </el-drawer>
   </div>
 </template>
 
@@ -2003,9 +1630,9 @@ onMounted(() => {
 
 .variant-card {
   display: grid;
-  grid-template-columns: 90px minmax(0, 1fr);
-  gap: 12px;
-  padding: 12px;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #ffffff;
@@ -2013,8 +1640,8 @@ onMounted(() => {
 
 .variant-media {
   display: grid;
-  width: 90px;
-  height: 90px;
+  width: 150px;
+  height: 150px;
   place-items: center;
   overflow: hidden;
   border-radius: 8px;
@@ -2031,24 +1658,44 @@ onMounted(() => {
 
 .variant-fields {
   display: grid;
-  gap: 10px;
+  align-content: start;
+  gap: 14px;
   min-width: 0;
 }
 
-.variant-grid {
+.variant-main-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
 }
 
-.variant-grid:nth-child(2) {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.variant-price-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.variant-price-grid label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.variant-price-grid label > span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.variant-price-grid :deep(.el-input-number),
+.variant-price-grid :deep(.el-select) {
+  width: 100%;
 }
 
 .variant-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
 }
 
@@ -2207,9 +1854,15 @@ onMounted(() => {
   }
 
   .variant-card,
-  .variant-grid,
-  .variant-grid:nth-child(2) {
+  .variant-main-grid,
+  .variant-price-grid {
     grid-template-columns: 1fr;
+  }
+
+  .variant-media {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
   }
 
   .variant-editor-head {

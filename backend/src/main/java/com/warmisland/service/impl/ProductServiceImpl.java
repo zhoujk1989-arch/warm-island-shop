@@ -262,6 +262,13 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             images.addAll(product.getImages());
         }
 
+        if (product.getVariants() != null) {
+            product.getVariants().stream()
+                    .map(ProductVariant::getImageUrl)
+                    .filter(StringUtils::hasText)
+                    .forEach(images::add);
+        }
+
         if (StringUtils.hasText(product.getImage())) {
             images.add(product.getImage());
         }
