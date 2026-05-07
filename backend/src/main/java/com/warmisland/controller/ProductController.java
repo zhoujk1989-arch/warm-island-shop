@@ -5,8 +5,14 @@ import com.warmisland.dto.Result;
 import com.warmisland.entity.Product;
 import com.warmisland.service.ProductService;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/products")
@@ -54,7 +60,7 @@ public class ProductController {
      */
     @GetMapping("/{id}")
     public Result<Product> getById(@PathVariable Long id) {
-        Product product = productService.getById(id);
+        Product product = productService.getProductById(id);
         if (product == null) {
             return Result.error(404, "商品不存在");
         }
@@ -66,8 +72,7 @@ public class ProductController {
      */
     @PostMapping
     public Result<Product> create(@RequestBody Product product) {
-        productService.save(product);
-        return Result.success(product);
+        return Result.success(productService.createProduct(product));
     }
 
     /**
@@ -75,11 +80,11 @@ public class ProductController {
      */
     @PutMapping("/{id}")
     public Result<Product> update(@PathVariable Long id, @RequestBody Product product) {
-        product.setId(id);
-        if (!productService.updateById(product)) {
+        Product updated = productService.updateProduct(id, product);
+        if (updated == null) {
             return Result.error(404, "商品不存在");
         }
-        return Result.success(product);
+        return Result.success(updated);
     }
 
     /**
@@ -87,9 +92,40 @@ public class ProductController {
      */
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
-        if (!productService.removeById(id)) {
+        if (!productService.deleteProduct(id)) {
             return Result.error(404, "商品不存在");
         }
         return Result.success();
+    }
+
+    /**
+     * POST /api/products/upload - Upload product image (admin)
+     */
+    @PostMapping("/upload")
+    public Result<String> upload(@RequestParam("file") MultipartFile file) throws IOException {
+        if (file.isEmpty()) {
+            return Result.error(400, "上传文件为空");
+        }
+
+        String originalFilename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
+        String extension = "";
+        int dotIndex = originalFilename.lastIndexOf('.');
+
+        if (dotIndex >= 0) {
+            extension = originalFilename.substring(dotIndex).toLowerCase(Locale.ROOT);
+        }
+
+        if (!List.of(".jpg", ".jpeg", ".png", ".webp", ".gif").contains(extension)) {
+            return Result.error(400, "仅支持 jpg、png、webp、gif 图片");
+        }
+
+        Path uploadDir = Path.of(System.getProperty("user.dir"), "uploads", "products");
+        Files.createDirectories(uploadDir);
+
+        String filename = UUID.randomUUID() + extension;
+        Path target = uploadDir.resolve(filename);
+        file.transferTo(target);
+
+        return Result.success("/uploads/products/" + filename);
     }
 }

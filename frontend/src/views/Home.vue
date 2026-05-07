@@ -1,15 +1,52 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import ProductCard from '../components/ProductCard.vue'
-import productsData from '../data/products.json'
+import { fetchHotProducts, fetchVisibleProducts } from '../api/products'
 
-const featuredProducts = ref(productsData.slice(0, 4))
+const featuredProducts = ref([])
+const productCount = ref(0)
+const averageRating = ref('4.8')
+const totalSoldCount = ref('0')
 
 const categories = [
   { name: '手冲与特调', image: '/products/coffee.jpg', desc: '咖啡 · 抹茶 · 果茶', note: '适合给午后留一点空白' },
   { name: '小炉烘焙', image: '/products/cookies.jpg', desc: '慕斯 · 蛋糕 · 曲奇', note: '小批量制作，甜度刚刚好' },
   { name: '温柔周边', image: '/products/candle.jpg', desc: '帆布袋 · 香薰 · 文创', note: '把小店气味带回日常' },
 ]
+
+const hasFeaturedProducts = computed(() => featuredProducts.value.length > 0)
+
+function formatSoldCount(count) {
+  if (count >= 10000) {
+    return `${(count / 10000).toFixed(1)}W+`
+  }
+
+  if (count >= 1000) {
+    return `${Math.round(count / 1000)}K+`
+  }
+
+  return String(count)
+}
+
+async function loadHomeProducts() {
+  try {
+    const [hotProducts, page] = await Promise.all([
+      fetchHotProducts(4),
+      fetchVisibleProducts({ pageSize: 200 }),
+    ])
+
+    featuredProducts.value = hotProducts
+    productCount.value = page.records.length
+
+    const ratingTotal = page.records.reduce((sum, product) => sum + product.rating, 0)
+    averageRating.value = page.records.length ? (ratingTotal / page.records.length).toFixed(1) : '0.0'
+    totalSoldCount.value = formatSoldCount(page.records.reduce((sum, product) => sum + product.soldCount, 0))
+  } catch (error) {
+    featuredProducts.value = []
+  }
+}
+
+onMounted(loadHomeProducts)
 </script>
 
 <template>
@@ -45,15 +82,15 @@ const categories = [
 
             <div class="grid grid-cols-3 gap-2.5 sm:gap-5 mt-9 sm:mt-12 max-w-xl">
               <div class="rounded-2xl sm:rounded-3xl bg-white/62 border border-[#f0d8c5] px-3 sm:px-4 py-4 sm:py-5 shadow-sm">
-                <div class="text-xl sm:text-3xl font-bold text-[#4a372b]">8+</div>
+                <div class="text-xl sm:text-3xl font-bold text-[#4a372b]">{{ productCount }}+</div>
                 <div class="text-[11px] sm:text-sm text-[#8a7463] mt-1">手作选品</div>
               </div>
               <div class="rounded-2xl sm:rounded-3xl bg-white/62 border border-[#f0d8c5] px-3 sm:px-4 py-4 sm:py-5 shadow-sm">
-                <div class="text-xl sm:text-3xl font-bold text-[#4a372b]">4.8</div>
+                <div class="text-xl sm:text-3xl font-bold text-[#4a372b]">{{ averageRating }}</div>
                 <div class="text-[11px] sm:text-sm text-[#8a7463] mt-1">治愈评分</div>
               </div>
               <div class="rounded-2xl sm:rounded-3xl bg-white/62 border border-[#f0d8c5] px-3 sm:px-4 py-4 sm:py-5 shadow-sm">
-                <div class="text-xl sm:text-3xl font-bold text-[#4a372b]">5K+</div>
+                <div class="text-xl sm:text-3xl font-bold text-[#4a372b]">{{ totalSoldCount }}</div>
                 <div class="text-[11px] sm:text-sm text-[#8a7463] mt-1">温暖陪伴</div>
               </div>
             </div>
@@ -146,8 +183,11 @@ const categories = [
           </router-link>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 stagger-children">
+        <div v-if="hasFeaturedProducts" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 stagger-children">
           <ProductCard v-for="product in featuredProducts" :key="product.id" :product="product" />
+        </div>
+        <div v-else class="rounded-[1.5rem] bg-white/70 border border-[#efd9c6] py-12 text-center text-[#7a6758]">
+          暂无在售商品
         </div>
       </div>
     </section>

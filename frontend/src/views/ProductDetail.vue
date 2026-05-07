@@ -1,15 +1,15 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import productsData from '../data/products.json'
+import { fetchProductById, fetchVisibleProducts } from '../api/products'
 
 const route = useRoute()
 const quantity = ref(1)
 const selectedImageIndex = ref(0)
-
-const product = computed(() =>
-  productsData.find(item => String(item.id) === String(route.params.id))
-)
+const product = ref(null)
+const relatedProducts = ref([])
+const loading = ref(false)
+const loadError = ref('')
 
 const galleryImages = computed(() => {
   if (!product.value) return []
@@ -37,19 +37,14 @@ const selectedGalleryImage = computed(() => {
   return galleryImages.value[selectedImageIndex.value] || galleryImages.value[0]
 })
 
-const relatedProducts = computed(() => {
-  if (!product.value) return []
-  return productsData
-    .filter(item => item.category === product.value.category && item.id !== product.value.id)
-    .slice(0, 3)
-})
-
 watch(
   () => route.params.id,
-  () => {
+  async () => {
     quantity.value = 1
     selectedImageIndex.value = 0
-  }
+    await loadProduct()
+  },
+  { immediate: true }
 )
 
 function productIcon(item) {
@@ -68,11 +63,44 @@ function productIcon(item) {
 function addToCart() {
   // TODO: Pinia store integration
 }
+
+async function loadProduct() {
+  loading.value = true
+  loadError.value = ''
+  product.value = null
+  relatedProducts.value = []
+
+  try {
+    const currentProduct = await fetchProductById(route.params.id)
+
+    if (currentProduct.status !== '销售中') {
+      return
+    }
+
+    product.value = currentProduct
+
+    const page = await fetchVisibleProducts({
+      pageSize: 12,
+      category: currentProduct.category,
+    })
+    relatedProducts.value = page.records
+      .filter((item) => item.id !== currentProduct.id)
+      .slice(0, 3)
+  } catch (error) {
+    loadError.value = error.message
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <template>
   <div class="min-h-screen pt-14 sm:pt-20 bg-[#fffaf2]">
-    <div v-if="product" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-14">
+    <div v-if="loading" class="max-w-3xl mx-auto px-5 sm:px-6 lg:px-8 py-24 text-center text-[#756252]">
+      正在读取商品数据...
+    </div>
+
+    <div v-else-if="product" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-14">
       <div class="mb-5 sm:mb-8">
         <router-link to="/shop" class="inline-flex items-center gap-2 text-sm font-medium text-[#8a7463] hover:text-primary transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,7 +225,7 @@ function addToCart() {
     <div v-else class="max-w-3xl mx-auto px-5 sm:px-6 lg:px-8 py-24 text-center">
       <div class="text-7xl mb-6">🧺</div>
       <h1 class="text-3xl font-bold text-[#3f3329] mb-3">没有找到这件手作好物</h1>
-      <p class="text-[#756252] mb-8">它可能已经下架，或者链接地址不正确。</p>
+      <p class="text-[#756252] mb-8">{{ loadError || '它可能已经下架，或者链接地址不正确。' }}</p>
       <router-link to="/shop" class="inline-block px-8 py-3.5 bg-primary text-white rounded-full font-medium shadow-lg shadow-primary/25 hover:bg-primary-dark hover:-translate-y-1 transition-all duration-300">
         返回商店
       </router-link>

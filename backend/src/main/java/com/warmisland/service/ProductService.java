@@ -11,6 +11,14 @@ public interface ProductService extends IService<Product> {
      */
     IPage<Product> pageProducts(int pageNum, int pageSize, String category, String keyword);
 
+    Product getProductById(Long id);
+
+    Product createProduct(Product product);
+
+    Product updateProduct(Long id, Product product);
+
+    boolean deleteProduct(Long id);
+
     /**
      * Get hot products by sold count
      */

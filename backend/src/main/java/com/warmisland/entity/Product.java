@@ -3,6 +3,7 @@ package com.warmisland.entity;
 import com.baomidou.mybatisplus.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @TableName("products")
 public class Product {
@@ -19,6 +20,10 @@ public class Product {
     private String tags;
     private Double rating;
     private Integer soldCount;
+    private Integer stock;
+    private String status;
+    @TableField(exist = false)
+    private List<String> images;
     @TableLogic
     private Integer deleted;
     @TableField(fill = FieldFill.INSERT)
@@ -58,6 +63,15 @@ public class Product {
 
     public Integer getSoldCount() { return soldCount; }
     public void setSoldCount(Integer soldCount) { this.soldCount = soldCount; }
+
+    public Integer getStock() { return stock; }
+    public void setStock(Integer stock) { this.stock = stock; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public List<String> getImages() { return images; }
+    public void setImages(List<String> images) { this.images = images; }
 
     public Integer getDeleted() { return deleted; }
     public void setDeleted(Integer deleted) { this.deleted = deleted; }

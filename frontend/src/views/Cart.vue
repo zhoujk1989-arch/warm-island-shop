@@ -1,12 +1,11 @@
 <script setup>
-import { ref, computed } from 'vue'
-import productsData from '../data/products.json'
+import { ref, computed, onMounted } from 'vue'
+import { fetchVisibleProducts } from '../api/products'
 
 // Simple cart state (will be replaced with Pinia later)
-const cartItems = ref([
-  { ...productsData[0], quantity: 2 },
-  { ...productsData[2], quantity: 1 },
-])
+const cartItems = ref([])
+const loading = ref(false)
+const loadError = ref('')
 
 const itemCount = computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity, 0))
 const totalPrice = computed(() => cartItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0))
@@ -23,6 +22,25 @@ function updateQuantity(index, delta) {
 function clearCart() {
   cartItems.value = []
 }
+
+async function loadCartPreview() {
+  loading.value = true
+  loadError.value = ''
+
+  try {
+    const page = await fetchVisibleProducts({ pageSize: 3 })
+    cartItems.value = page.records.slice(0, 2).map((product, index) => ({
+      ...product,
+      quantity: index === 0 ? 2 : 1,
+    }))
+  } catch (error) {
+    loadError.value = error.message
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadCartPreview)
 </script>
 
 <template>
@@ -31,8 +49,20 @@ function clearCart() {
       <h1 class="text-3xl font-bold text-text-main mb-2">购物车</h1>
       <p class="text-text-subtle mb-8">{{ itemCount }} 件商品</p>
 
+      <div v-if="loading" class="text-center py-20 bg-white rounded-2xl text-text-subtle">
+        正在读取购物车商品...
+      </div>
+
+      <div v-else-if="loadError" class="text-center py-20 bg-white rounded-2xl">
+        <h3 class="text-xl font-semibold text-text-main mb-2">商品加载失败</h3>
+        <p class="text-text-subtle mb-6">{{ loadError }}</p>
+        <button @click="loadCartPreview" class="inline-block px-8 py-3 bg-primary text-white rounded-full hover:bg-primary-dark transition-colors">
+          重新加载
+        </button>
+      </div>
+
       <!-- Empty cart -->
-      <div v-if="!cartItems.length" class="text-center py-20 bg-white rounded-2xl">
+      <div v-else-if="!cartItems.length" class="text-center py-20 bg-white rounded-2xl">
         <div class="text-6xl mb-4">🛒</div>
         <h3 class="text-xl font-semibold text-text-main mb-2">购物车是空的</h3>
         <p class="text-text-subtle mb-6">快去挑选心仪的商品吧</p>

@@ -1,14 +1,16 @@
 <script setup>
-import { ref, computed } from 'vue'
-import productsData from '../data/products.json'
+import { ref, computed, onMounted } from 'vue'
 import ProductCard from '../components/ProductCard.vue'
+import { fetchVisibleProducts } from '../api/products'
 
-const products = ref(productsData)
+const products = ref([])
+const loading = ref(false)
+const loadError = ref('')
 const selectedCategory = ref('全部')
 const searchQuery = ref('')
 
 const categories = computed(() => {
-  const cats = ['全部', ...new Set(productsData.map(p => p.category))]
+  const cats = ['全部', ...new Set(products.value.map(p => p.category))]
   return cats
 })
 
@@ -30,6 +32,22 @@ const filteredProducts = computed(() => {
 
   return result
 })
+
+async function loadProducts() {
+  loading.value = true
+  loadError.value = ''
+
+  try {
+    const page = await fetchVisibleProducts({ pageSize: 200 })
+    products.value = page.records
+  } catch (error) {
+    loadError.value = error.message
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadProducts)
 </script>
 
 <template>
@@ -63,8 +81,20 @@ const filteredProducts = computed(() => {
         </button>
       </div>
 
+      <div v-if="loading" class="text-center py-20 text-text-subtle">
+        正在读取商品数据...
+      </div>
+
+      <div v-else-if="loadError" class="text-center py-20">
+        <h3 class="text-xl font-semibold text-text-main mb-2">商品加载失败</h3>
+        <p class="text-text-subtle mb-6">{{ loadError }}</p>
+        <button @click="loadProducts" class="px-6 py-3 bg-primary text-white rounded-full hover:bg-primary-dark transition-colors">
+          重新加载
+        </button>
+      </div>
+
       <!-- Product grid -->
-      <div v-if="filteredProducts.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div v-else-if="filteredProducts.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <ProductCard v-for="product in filteredProducts" :key="product.id" :product="product" />
       </div>
 
