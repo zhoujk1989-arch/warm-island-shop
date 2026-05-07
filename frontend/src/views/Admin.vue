@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Box,
   Delete,
+  Download,
   Edit,
   Goods,
   Plus,
@@ -194,11 +195,6 @@ function syncPrimaryImage() {
   productForm.image = productForm.images[0] || productForm.image || '/products/coffee.jpg'
 }
 
-function addImageUrl() {
-  productForm.images.push('/products/coffee.jpg')
-  syncPrimaryImage()
-}
-
 function removeImage(index) {
   productForm.images.splice(index, 1)
   syncPrimaryImage()
@@ -241,6 +237,30 @@ async function uploadProductImage({ file, onSuccess, onError }) {
   }
 }
 
+async function downloadImage(image) {
+  try {
+    const response = await fetch(image)
+
+    if (!response.ok) {
+      throw new Error('图片下载失败')
+    }
+
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const filename = decodeURIComponent(image.split('/').pop() || 'product-image.jpg')
+
+    link.href = objectUrl
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(objectUrl)
+  } catch (error) {
+    ElMessage.error(`下载失败：${error.message}`)
+  }
+}
+
 async function saveProduct() {
   if (!productForm.name.trim() || !productForm.category.trim()) {
     ElMessage.warning('请填写商品名称和分类')
@@ -250,7 +270,7 @@ async function saveProduct() {
   const images = productForm.images.map((image) => image.trim()).filter(Boolean)
 
   if (images.length === 0) {
-    ElMessage.warning('请至少上传或填写一张商品图片')
+    ElMessage.warning('请至少上传一张商品图片')
     return
   }
 
@@ -476,8 +496,39 @@ onMounted(fetchProducts)
         <el-form-item label="英文名称">
           <el-input v-model="productForm.nameEn" placeholder="Warm Island Coffee" />
         </el-form-item>
-        <el-form-item label="图片路径">
-          <el-input v-model="productForm.image" placeholder="/products/coffee.jpg" />
+        <el-form-item label="商品图片">
+          <div class="image-manager">
+            <el-upload
+              drag
+              action=""
+              accept="image/*"
+              :show-file-list="false"
+              :http-request="uploadProductImage"
+            >
+              <div class="upload-copy">
+                <strong>上传商品图片</strong>
+                <span>支持多张图片，保存时按下方顺序展示。</span>
+              </div>
+            </el-upload>
+
+            <div class="image-list">
+              <div v-for="(image, index) in productForm.images" :key="`${image}-${index}`" class="image-row">
+                <img :src="image" :alt="`商品图片 ${index + 1}`">
+                <div class="image-row-main">
+                  <div class="image-row-title">
+                    <span>第 {{ index + 1 }} 张</span>
+                    <el-tag v-if="index === 0" size="small" type="success">主图</el-tag>
+                  </div>
+                </div>
+                <div class="image-actions">
+                  <el-button size="small" :disabled="index === 0" @click="moveImage(index, -1)">上移</el-button>
+                  <el-button size="small" :disabled="index === productForm.images.length - 1" @click="moveImage(index, 1)">下移</el-button>
+                  <el-button size="small" :icon="Download" @click="downloadImage(image)">下载</el-button>
+                  <el-button size="small" type="danger" :icon="Delete" @click="removeImage(index)" />
+                </div>
+              </div>
+            </div>
+          </div>
         </el-form-item>
         <div class="form-grid">
           <el-form-item label="分类">
@@ -774,6 +825,71 @@ onMounted(fetchProducts)
   gap: 12px;
 }
 
+.image-manager {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.upload-copy {
+  display: grid;
+  gap: 6px;
+  color: #4b5563;
+}
+
+.upload-copy strong {
+  color: #111827;
+}
+
+.upload-copy span {
+  font-size: 13px;
+}
+
+.image-list {
+  display: grid;
+  gap: 10px;
+}
+
+.image-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.image-row img {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #fff1df;
+}
+
+.image-row-main {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.image-row-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.image-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 :deep(.el-button--primary) {
   --el-button-bg-color: #e8734a;
   --el-button-border-color: #e8734a;
@@ -818,6 +934,20 @@ onMounted(fetchProducts)
   .filters,
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .image-row {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .image-row img {
+    width: 56px;
+    height: 56px;
+  }
+
+  .image-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
   }
 }
 </style>

@@ -2,6 +2,10 @@ server:
   port: ${PORT:8080}
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
   datasource:
     url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:warm_island}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
     username: ${DB_USER:root}

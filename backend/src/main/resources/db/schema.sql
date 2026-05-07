@@ -51,4 +51,10 @@ INSERT INTO `products` (`name`, `name_en`, `price`, `original_price`, `image`, `
 ('海岛香薰蜡烛', 'Island Scented Candle', 78.00, 98.00, '/products/candle.jpg', '周边', '热带花香与木质调的融合，点燃就是海岛度假的感觉', '新品,礼盒', 4.9, 430, 24, '销售中');
 
 INSERT INTO `product_images` (`product_id`, `image_url`, `sort_order`)
-SELECT `id`, `image`, 0 FROM `products` WHERE `image` IS NOT NULL AND `image` <> '';
+SELECT p.`id`, p.`image`, 0
+FROM `products` p
+WHERE p.`image` IS NOT NULL
+  AND p.`image` <> ''
+  AND NOT EXISTS (
+      SELECT 1 FROM `product_images` pi WHERE pi.`product_id` = p.`id`
+  );
