@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import ProductCard from '../components/ProductCard.vue'
 import { fetchVisibleProducts } from '../api/products'
 
@@ -8,29 +8,11 @@ const loading = ref(false)
 const loadError = ref('')
 const selectedCategory = ref('全部')
 const searchQuery = ref('')
+let searchTimer = null
 
 const categories = computed(() => {
   const cats = ['全部', ...new Set(products.value.map(p => p.category))]
   return cats
-})
-
-const filteredProducts = computed(() => {
-  let result = products.value
-
-  if (selectedCategory.value !== '全部') {
-    result = result.filter(p => p.category === selectedCategory.value)
-  }
-
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.toLowerCase()
-    result = result.filter(p =>
-      p.name.includes(q) ||
-      p.nameEn.toLowerCase().includes(q) ||
-      p.description.includes(q)
-    )
-  }
-
-  return result
 })
 
 async function loadProducts() {
@@ -38,13 +20,28 @@ async function loadProducts() {
   loadError.value = ''
 
   try {
-    const page = await fetchVisibleProducts({ pageSize: 200 })
+    const page = await fetchVisibleProducts({
+      pageSize: 200,
+      category: selectedCategory.value !== '全部' ? selectedCategory.value : null,
+      keyword: searchQuery.value.trim() || null,
+    })
     products.value = page.records
   } catch (error) {
     loadError.value = error.message
   } finally {
     loading.value = false
   }
+}
+
+function handleSearch() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    loadProducts()
+  }, 400)
+}
+
+function handleCategoryChange() {
+  loadProducts()
 }
 
 onMounted(loadProducts)
@@ -63,7 +60,7 @@ onMounted(loadProducts)
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-subtle/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <input v-model="searchQuery" type="text" placeholder="搜索商品..."
+          <input v-model="searchQuery" @input="handleSearch" type="text" placeholder="搜索商品..."
             class="w-full pl-10 pr-4 py-3 sm:py-2.5 rounded-2xl sm:rounded-xl border border-border-light bg-bg-warm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
         </div>
       </div>
@@ -72,7 +69,7 @@ onMounted(loadProducts)
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       <!-- Category filter -->
       <div class="flex gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
-        <button v-for="cat in categories" :key="cat" @click="selectedCategory = cat"
+        <button v-for="cat in categories" :key="cat" @click="selectedCategory = cat; handleCategoryChange()"
           class="shrink-0 px-5 py-2.5 sm:py-2 rounded-full text-sm font-medium transition-all duration-300"
           :class="selectedCategory === cat
             ? 'bg-primary text-white shadow-md shadow-primary/25'
@@ -94,8 +91,8 @@ onMounted(loadProducts)
       </div>
 
       <!-- Product grid -->
-      <div v-else-if="filteredProducts.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <ProductCard v-for="product in filteredProducts" :key="product.id" :product="product" />
+      <div v-else-if="products.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <ProductCard v-for="product in products" :key="product.id" :product="product" />
       </div>
 
       <!-- Empty state -->

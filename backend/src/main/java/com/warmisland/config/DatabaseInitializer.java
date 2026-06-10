@@ -2,12 +2,14 @@ package com.warmisland.config;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
 public class DatabaseInitializer implements CommandLineRunner {
 
     private final JdbcTemplate jdbcTemplate;
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public DatabaseInitializer(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -15,6 +17,7 @@ public class DatabaseInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        createUsersTable();
         createProductCategoriesTable();
         createProductsTable();
         createProductImagesTable();
@@ -22,6 +25,8 @@ public class DatabaseInitializer implements CommandLineRunner {
         createProductVariantsTable();
         createHomeSectionsTable();
         createHomeSectionItemsTable();
+        createOrdersTable();
+        createOrderItemsTable();
         addColumnIfMissing("stock", "INT DEFAULT 0 COMMENT '库存'");
         addColumnIfMissing("status", "VARCHAR(20) NOT NULL DEFAULT '销售中' COMMENT '商品状态'");
         jdbcTemplate.update("UPDATE products SET stock = 0 WHERE stock IS NULL");
@@ -33,6 +38,37 @@ public class DatabaseInitializer implements CommandLineRunner {
         seedProductVariantsWhenMissing();
         seedHomeSectionsWhenMissing();
         seedHomeSectionItemsWhenMissing();
+        seedAdminUserWhenMissing();
+    }
+
+    private void createUsersTable() {
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id BIGINT NOT NULL AUTO_INCREMENT COMMENT '用户ID',
+                username VARCHAR(50) NOT NULL COMMENT '用户名',
+                password_hash VARCHAR(100) NOT NULL COMMENT '密码哈希',
+                role VARCHAR(20) NOT NULL DEFAULT 'USER' COMMENT '角色',
+                deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标识',
+                create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (id),
+                UNIQUE KEY uk_users_username (username)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表'
+            """);
+    }
+
+    private void seedAdminUserWhenMissing() {
+        Integer adminCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM users WHERE username = 'admin' AND deleted = 0",
+                Integer.class);
+        if (adminCount == null || adminCount == 0) {
+            jdbcTemplate.update(
+                    "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                    "admin",
+                    passwordEncoder.encode("admin123"),
+                    "ADMIN"
+            );
+        }
     }
 
     private void createProductCategoriesTable() {
@@ -77,6 +113,11 @@ public class DatabaseInitializer implements CommandLineRunner {
             """);
     }
 
+    private static final java.util.Set<String> ALLOWED_COLUMN_DEFS = java.util.Set.of(
+            "INT DEFAULT 0 COMMENT '库存'",
+            "VARCHAR(20) NOT NULL DEFAULT '销售中' COMMENT '商品状态'"
+    );
+
     private void addColumnIfMissing(String columnName, String columnDefinition) {
         Integer count = jdbcTemplate.queryForObject("""
             SELECT COUNT(*)
@@ -87,6 +128,9 @@ public class DatabaseInitializer implements CommandLineRunner {
             """, Integer.class, columnName);
 
         if (count == null || count == 0) {
+            if (!ALLOWED_COLUMN_DEFS.contains(columnDefinition)) {
+                throw new IllegalArgumentException("不允许的列定义: " + columnDefinition);
+            }
             jdbcTemplate.execute("ALTER TABLE products ADD COLUMN " + columnName + " " + columnDefinition);
         }
     }
@@ -376,6 +420,45 @@ public class DatabaseInitializer implements CommandLineRunner {
                   AND hsi.item_type = default_rows.item_type
                   AND hsi.title = default_rows.title
             )
+            """);
+    }
+
+    private void createOrdersTable() {
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS orders (
+                id BIGINT NOT NULL AUTO_INCREMENT COMMENT '订单ID',
+                user_id BIGINT NOT NULL COMMENT '用户ID',
+                total_amount DECIMAL(10,2) NOT NULL COMMENT '订单总金额',
+                status VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '订单状态:PENDING/PAID/SHIPPED/COMPLETED/CANCELLED',
+                shipping_address VARCHAR(500) DEFAULT NULL COMMENT '收货地址',
+                recipient_name VARCHAR(100) DEFAULT NULL COMMENT '收件人姓名',
+                recipient_phone VARCHAR(20) DEFAULT NULL COMMENT '收件人电话',
+                deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标识',
+                create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (id),
+                INDEX idx_orders_user_status (user_id, status),
+                INDEX idx_orders_create_time (create_time)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单表'
+            """);
+    }
+
+    private void createOrderItemsTable() {
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS order_items (
+                id BIGINT NOT NULL AUTO_INCREMENT COMMENT '订单项ID',
+                order_id BIGINT NOT NULL COMMENT '订单ID',
+                product_id BIGINT NOT NULL COMMENT '商品ID',
+                variant_id BIGINT DEFAULT NULL COMMENT '款式ID',
+                quantity INT NOT NULL DEFAULT 1 COMMENT '购买数量',
+                price DECIMAL(10,2) NOT NULL COMMENT '购买时单价',
+                create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                PRIMARY KEY (id),
+                INDEX idx_order_items_order (order_id),
+                CONSTRAINT fk_order_items_order
+                    FOREIGN KEY (order_id) REFERENCES orders(id)
+                    ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单项表'
             """);
     }
 }

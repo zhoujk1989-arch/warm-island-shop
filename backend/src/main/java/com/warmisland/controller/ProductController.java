@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.warmisland.dto.Result;
 import com.warmisland.entity.Product;
 import com.warmisland.service.ProductService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -71,7 +72,7 @@ public class ProductController {
      * POST /api/products - Create product (admin)
      */
     @PostMapping
-    public Result<Product> create(@RequestBody Product product) {
+    public Result<Product> create(@Valid @RequestBody Product product) {
         return Result.success(productService.createProduct(product));
     }
 
@@ -79,7 +80,7 @@ public class ProductController {
      * PUT /api/products/{id} - Update product (admin)
      */
     @PutMapping("/{id}")
-    public Result<Product> update(@PathVariable Long id, @RequestBody Product product) {
+    public Result<Product> update(@PathVariable Long id, @Valid @RequestBody Product product) {
         Product updated = productService.updateProduct(id, product);
         if (updated == null) {
             return Result.error(404, "商品不存在");
@@ -107,6 +108,10 @@ public class ProductController {
             return Result.error(400, "上传文件为空");
         }
 
+        if (file.getSize() > 10 * 1024 * 1024) {
+            return Result.error(400, "文件大小不能超过 10MB");
+        }
+
         String originalFilename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
         String extension = "";
         int dotIndex = originalFilename.lastIndexOf('.');
@@ -115,8 +120,14 @@ public class ProductController {
             extension = originalFilename.substring(dotIndex).toLowerCase(Locale.ROOT);
         }
 
-        if (!List.of(".jpg", ".jpeg", ".png", ".webp", ".gif").contains(extension)) {
+        List<String> allowedExtensions = java.util.List.of(".jpg", ".jpeg", ".png", ".webp", ".gif");
+        if (!allowedExtensions.contains(extension)) {
             return Result.error(400, "仅支持 jpg、png、webp、gif 图片");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            return Result.error(400, "文件内容类型不合法");
         }
 
         Path uploadDir = Path.of(System.getProperty("user.dir"), "uploads", "products");

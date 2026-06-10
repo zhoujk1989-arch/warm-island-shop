@@ -12,7 +12,14 @@ public class CorsConfig {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOriginPattern("*");
+        // 开发环境允许 localhost，生产环境应在 application.yml 中配置具体域名
+        String[] allowedOrigins = {
+                "http://localhost:5173",
+                "http://127.0.0.1:5173"
+        };
+        for (String origin : allowedOrigins) {
+            config.addAllowedOrigin(origin);
+        }
         config.setAllowCredentials(true);
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");

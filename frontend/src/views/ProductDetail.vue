@@ -1,9 +1,12 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { fetchProductById, fetchVisibleProducts } from '../api/products'
+import { useCartStore } from '../stores/cart.js'
 
 const route = useRoute()
+const router = useRouter()
+const cartStore = useCartStore()
 const quantity = ref(1)
 const selectedImageIndex = ref(0)
 const selectedVariantIndex = ref(0)
@@ -74,7 +77,11 @@ function productIcon(item) {
 }
 
 function addToCart() {
-  // TODO: Pinia store integration
+  if (!product.value) return
+  const variantId = selectedVariant.value?.id || null
+  cartStore.addItem(product.value, variantId, quantity.value)
+  // 简单提示
+  alert('已加入购物车')
 }
 
 function selectVariant(variant, index) {

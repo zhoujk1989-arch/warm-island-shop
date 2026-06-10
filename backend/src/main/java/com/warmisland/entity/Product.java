@@ -1,6 +1,9 @@
 package com.warmisland.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -9,10 +12,18 @@ import java.util.List;
 public class Product {
 
     @TableId(type = IdType.AUTO)
+    @NotNull(message = "ID 不能为空")
     private Long id;
+
+    @NotBlank(message = "商品名称不能为空")
     private String name;
+
     private String nameEn;
+
+    @NotNull(message = "价格不能为空")
+    @DecimalMin(value = "0.01", message = "价格必须大于0")
     private BigDecimal price;
+
     private BigDecimal originalPrice;
     private String image;
     private String category;
@@ -20,7 +31,11 @@ public class Product {
     private String tags;
     private Double rating;
     private Integer soldCount;
+
+    @NotNull(message = "库存不能为空")
+    @DecimalMin(value = "0", message = "库存不能为负数")
     private Integer stock;
+
     private String status;
     @TableField(exist = false)
     private List<String> images;
