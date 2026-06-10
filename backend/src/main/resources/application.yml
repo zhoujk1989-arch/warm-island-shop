@@ -11,7 +11,7 @@ spring:
       max-file-size: 10MB
       max-request-size: 50MB
   datasource:
-    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:warm_island}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3307}/${DB_NAME:warm_island}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
     username: ${DB_USER:root}
     password: ${DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
